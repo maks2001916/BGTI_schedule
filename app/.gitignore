@@ -1,1 +1,17 @@
 /build
+
+app/src/main/res/*кабинет*.html
+app/src/main/res/*логином*.html
+
+.gradle/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+local.properties
+*.keystore
+*.jks
+keystore.properties
+
+.navigation/
+.cxx/
+.externalNativeBuild/
