@@ -78,5 +78,6 @@ dependencies {
 
     // Encrypted SharedPreferences (для токенов)
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("androidx.compose.material:material-icons-extended:1.6.0")
 
 }
