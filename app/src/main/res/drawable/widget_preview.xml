@@ -1,0 +1,20 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="250dp"
+    android:height="110dp"
+    android:viewportWidth="250"
+    android:viewportHeight="110">
+
+    <path
+        android:fillColor="#1A73E8"
+        android:pathData="M16,0 L234,0 A16,16 0 0,1 250,16 L250,94 A16,16 0 0,1 234,110 L16,110 A16,16 0 0,1 0,94 L0,16 A16,16 0 0,1 16,0 Z"/>
+
+    <text
+        android:textSize="16sp"
+        android:textColor="#FFFFFF"
+        android:text="Расписание"/>
+
+    <text
+        android:textSize="12sp"
+        android:textColor="#DDDDDD"
+        android:text="Базы данных • 12:30"/>
+</vector>

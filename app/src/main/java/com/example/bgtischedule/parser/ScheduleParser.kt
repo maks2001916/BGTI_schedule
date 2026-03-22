@@ -2,36 +2,44 @@ package com.example.bgtischedule.parser
 
 import com.example.bgtischedule.model.Lesson
 import com.example.bgtischedule.model.Schedule
+import com.example.bgtischedule.model.StudentModel
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 
 class ScheduleParser {
 
-    fun parse(html: String): Schedule? {
+    fun parse(html: String?): Schedule? {
         return try {
             val doc = Jsoup.parse(html)
 
-            // Имя и группа находятся в левой панели кабинета.
+            // Имя и группа находящиеся в левой панели кабинета.
             val studentName = doc.selectFirst("div[style*=font-size:16px]")?.text()?.trim().orEmpty()
             val group = doc.selectFirst("div[style*=color:#e0e0e0]")?.text()?.trim().orEmpty()
+            val parts = studentName.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+            val student = StudentModel(parts[0], parts[1], parts[2])
 
             // Извлекаем диапазон недели
             val weekRange = doc.select("td")
-                .firstOrNull { it.text().contains("Неделя с") }
-                ?.text()
+                .firstOrNull {
+                    it.attr("align") == "center" &&
+                            it.text().contains("Неделя с") &&
+                            it.attr("style").contains("font-size:18px")
+                }
+                ?.ownText()
                 ?.trim()
                 .orEmpty()
 
             // Парсим таблицу с расписанием
             val lessons = parseLessons(doc)
 
-            Schedule(studentName = studentName, group = group, weekRange = weekRange, lessons = lessons)
+            Schedule(studentFIO = student, group = group, weekRange = weekRange, lessons = lessons)
         } catch (e: Exception) {
             e.printStackTrace()
             null
         }
     }
 
+    // Парсинг занятия
     private fun parseLessons(doc: Document): List<Lesson> {
         val lessons = mutableListOf<Lesson>()
         val dayTables = doc.select("td.hdweek, td.hdweek-sl")
@@ -66,7 +74,7 @@ class ScheduleParser {
             val type = extractType(info)
             val teacher = extractTeacher(info)
             val topic = extractTopic(info)
-            val time = getLessonTime(lessonNumber)
+            val time = getLessonTime(lessonNumber, false)
 
             Lesson(
                 day = day,
@@ -84,6 +92,7 @@ class ScheduleParser {
         }
     }
 
+    // Парсинг кабинета
     private fun extractClassroom(info: String): String {
         val audRegex = "Ауд\\.\\s*([^\\n]+?)(?=\\s{2,}|Лекция|Практическое|Семинар|Тема занятия:|$)".toRegex()
         val aud = audRegex.find(info)?.groupValues?.get(1)?.trim()
@@ -119,7 +128,7 @@ class ScheduleParser {
         return regex.find(info)?.groupValues?.get(1)?.trim() ?: ""
     }
 
-    private fun getLessonTime(lessonNumber: String): String {
+    private fun getLessonTime(lessonNumber: String, shortTime: Boolean): String {
         val times = mapOf(
             "1 пара" to "08:30-10:00",
             "2 пара" to "10:10-11:40",
@@ -130,6 +139,18 @@ class ScheduleParser {
             "7 пара" to "18:40-20:10",
             "8 пара" to "20:20-21:50"
         )
-        return times[lessonNumber] ?: ""
+        val shortTimes = mapOf(
+        "1 пара" to "8:30-9:40",
+        "2 пара" to "9:50-11:00",
+        "3 пара" to "11:10-12:20",
+        "4 пара" to "12:30-13:40",
+        "5 пара" to "13:50-15:00",
+        "6 пара" to "15:10-16:20",
+        "7 пара" to "16:30-17:40",
+        "8 пара" to "17:50-19:00"
+        )
+        return if (shortTime) {
+            shortTimes[lessonNumber] ?: ""
+        } else times[lessonNumber] ?: ""
     }
 }

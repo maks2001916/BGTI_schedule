@@ -82,16 +82,14 @@ class UniversityApi(
         return pattern.find(html)?.groupValues?.getOrNull(1).orEmpty()
     }
 
-    // Внутренний класс для хранения Cookies в памяти
+    // хранение Cookies в памяти
     private class CookieJarImpl : CookieJar {
         private val cookieStore = HashMap<String, List<Cookie>>()
 
         override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
-            cookieStore[url.host] = cookies
-        }
+            cookieStore[url.host] = cookies }
 
         override fun loadForRequest(url: HttpUrl): List<Cookie> {
-            return cookieStore[url.host] ?: emptyList()
-        }
+            return cookieStore[url.host] ?: emptyList() }
     }
 }

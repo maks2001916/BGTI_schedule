@@ -56,3 +56,16 @@ fun BGTIScheduleTheme(
         content = content
     )
 }
+
+@Composable
+private fun PreviewTheme(
+    darkTheme: Boolean = false,
+    content: @Composable () -> Unit
+) {
+    val colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme()
+
+    MaterialTheme(
+        colorScheme = colorScheme,
+        content = content
+    )
+}

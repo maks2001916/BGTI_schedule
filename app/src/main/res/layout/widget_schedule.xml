@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/widget_background"
+    android:padding="12dp"
+    android:layout_gravity="center"
+    >
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center">
+
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Расписание"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/widget_refresh_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Обновить" />
+
+
+    </LinearLayout>
+    <!-- Список пар (имитация через LinearLayout) -->
+    <LinearLayout
+        android:id="@+id/widget_lessons_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Пример пары (будет заполнено кодом) -->
+        <include layout="@layout/widget_lesson_item"/>
+        <include layout="@layout/widget_lesson_item"/>
+
+    </LinearLayout>
+
+
+    <!-- Клик по виджету открывает приложение -->
+    <FrameLayout
+        android:id="@+id/widget_click_area"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+</LinearLayout>

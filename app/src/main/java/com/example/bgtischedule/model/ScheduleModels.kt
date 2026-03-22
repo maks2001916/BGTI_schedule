@@ -13,7 +13,7 @@ data class Lesson(
 )
 
 data class Schedule(
-    val studentName: String,
+    val studentFIO: StudentModel,
     val group: String,
     val weekRange: String,
     val lessons: List<Lesson>
