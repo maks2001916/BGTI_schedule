@@ -2,38 +2,58 @@ package com.example.bgtischedule.datebaze
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
 import com.example.bgtischedule.model.Lesson
 import com.example.bgtischedule.model.StudentModel
 
-@Entity(tableName = "lesson")
-data class LessonDbEntity(
-    @ColumnInfo(name = "day") val day: String,                      //день недели
-    @PrimaryKey
-    @ColumnInfo(name = "date") val date: String,                    //дата
-    @ColumnInfo(name = "lessonNumber") val lessonNumber: String,    //номер пары
-    @ColumnInfo(name = "time") val time: String,                    //вермя
-    @ColumnInfo(name = "classroom") val classroom: String,          //аудитория
-    @ColumnInfo(name = "subject") val subject: String,              //предмет
-    @ColumnInfo(name = "type") val type: String,                    //тип
-    @ColumnInfo(name = "teacher") val teacher: String,              //преподаватель
-    @ColumnInfo(name = "topic") val topic: String                   //тема
+@Entity(
+    tableName = "lesson",
+    foreignKeys = [
+        ForeignKey(
+            entity = ScheduleEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["weekId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ]
+)
+data class LessonEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0 ,
+    val weekId: Long,
+    val studentGroup: String,
+
+    val dayOfWeek: String,        //день недели
+    val date: String,             //дата
+    val lessonNumber: String,     //номер пары
+    val time: String,             //вермя
+
+    val subject: String,          //предмет
+    val type: String,             //тип
+    val topic: String,            //тема
+    val teacher: String,          //преподаватель
+    val classroom: String,         //аудитория
+
+    val contentHash: String = ""
 )
 
-@Entity(tableName = "schedule")
-data class ScheduleDbEntity(
-    @ColumnInfo(name = "student") val student: StudentModel,
-    @PrimaryKey
-    @ColumnInfo(name = "weekRange") val weekRange: String,
-    @ColumnInfo(name = "group") val group: String,
-    @ColumnInfo(name = "lessons") val lessons: List<Lesson>
+@Entity(tableName = "schedule_week")
+data class ScheduleEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val studentGroup: String,
+    val weekStart: String,
+    val weekEnd: String,
+    val lastUpdated: Long
 )
 
-@Entity
-data class StudentDbEntity(
-    @ColumnInfo(name = "name") val name: String,
-    @ColumnInfo(name = "surname") val surname: String,
-    @ColumnInfo(name = "patronymic") val patronymic: String,
-    @ColumnInfo(name = "group") val group: String
+@Entity(tableName = "student")
+data class StudentEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+
+    val name: String,
+    val surname: String,
+    val patronymic: String,
+    val group: String,
+    val login: String = ""
 )
 
