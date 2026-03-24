@@ -53,7 +53,7 @@ fun main() = runBlocking {
 private fun printSchedule(schedule: Schedule) {
     println("=" .repeat(60))
     println("Студент: ${schedule.studentFIO.name} ${schedule.studentFIO.surname} ${schedule.studentFIO.patronymic}")
-    println("Группа: ${schedule.group}")
+    println("Группа: ${schedule.studentFIO.group}")
     println("Неделя: ${schedule.weekRange}")
     println("=" .repeat(60))
 

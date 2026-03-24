@@ -16,7 +16,7 @@ class ScheduleParser {
             val studentName = doc.selectFirst("div[style*=font-size:16px]")?.text()?.trim().orEmpty()
             val group = doc.selectFirst("div[style*=color:#e0e0e0]")?.text()?.trim().orEmpty()
             val parts = studentName.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
-            val student = StudentModel(parts[0], parts[1], parts[2])
+            val student = StudentModel(parts[0], parts[1], parts[2], group = group)
 
             // Извлекаем диапазон недели
             val weekRange = doc.select("td")
@@ -32,7 +32,7 @@ class ScheduleParser {
             // Парсим таблицу с расписанием
             val lessons = parseLessons(doc)
 
-            Schedule(studentFIO = student, group = group, weekRange = weekRange, lessons = lessons)
+            Schedule(studentFIO = student, weekRange = weekRange, lessons = lessons)
         } catch (e: Exception) {
             e.printStackTrace()
             null

@@ -145,7 +145,7 @@ private fun HomeScreen(padding: PaddingValues) {
     ) {
 
         val request = Request()
-        val
+
 
 
         Text("BGTI Schedule", style = MaterialTheme.typography.headlineSmall)
@@ -166,7 +166,6 @@ fun HomeScreenPreviewLight() {
     Surface { HomeScreen(padding = androidx.compose.foundation.layout.PaddingValues(10.dp)) }}
 
 
-fun dayCard()
 
 @Composable
 private fun InfoCard(title: String, text: String) {
