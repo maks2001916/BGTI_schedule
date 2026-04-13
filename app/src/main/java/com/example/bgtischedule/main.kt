@@ -4,6 +4,7 @@ import com.example.bgtischedule.api.UniversityApi
 import com.example.bgtischedule.model.Schedule
 import com.example.bgtischedule.parser.ScheduleParser
 import kotlinx.coroutines.runBlocking
+import java.io.File
 
 private val logUrl: String = "https://bgti.ru//Enter/Signin.aspx"
 private val sheduleUrl: String = "https://lk.bgti.ru/Default.aspx"
@@ -50,6 +51,29 @@ fun main() = runBlocking {
     printSchedule(schedule)
 }
 
+fun chekSchedule() = runBlocking {
+    val parser = ScheduleParser()
+    val file = File("/home/max/Windows-SSD/Users/mamon/Documents/черновик cursor/BGTIschedule/app/src/main/res/Персональный кабинет студента.html")
+    val html = try {
+        // Читаем с кодировкой, которая используется на сайте (обычно UTF-8 или windows-1251)
+        file.readText(Charsets.UTF_8)
+    } catch (e: Exception) {
+        println("❌ Ошибка чтения файла: ${e.message}")
+        return@runBlocking false
+    }
+
+    println("🔍 Парсинг...")
+    val schedule = parser.parse(html )
+
+    if (schedule == null) {
+        println("❌ Ошибка парсинга!")
+        return@runBlocking false
+    }
+
+    // Вывод результата
+    printSchedule(schedule)
+}
+
 private fun printSchedule(schedule: Schedule) {
     println("=" .repeat(60))
     println("Студент: ${schedule.studentFIO.name} ${schedule.studentFIO.surname} ${schedule.studentFIO.patronymic}")
@@ -64,9 +88,19 @@ private fun printSchedule(schedule: Schedule) {
         println("   Тип: ${lesson.type}")
         println("   Преподаватель: ${lesson.teacher}")
         println("   Аудитория: ${lesson.classroom}")
+
         if (lesson.topic.isNotEmpty()) {
             println("   Тема: ${lesson.topic}")
         }
+        if (lesson.note.isNotEmpty()) {
+            println("   примечание: ${lesson.note}")
+        }
+        if (lesson.noteTime.isNotEmpty()) {
+            println("   примечание о времени: ${lesson.noteTime}")
+        }
+        if ((lesson.estimation.isNotEmpty())) (
+            println("   оценка: ${lesson.estimation}")
+        )
         println("-" .repeat(60))
     }
 

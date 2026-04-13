@@ -10,7 +10,10 @@ data class Lesson(
     val subject: String,        //предмет
     val type: String,           //тип
     val teacher: String,        //преподаватель
-    val topic: String           //тема
+    val topic: String,          //тема
+    val note: String,           //примечание
+    val estimation: String,     //оценка
+    val noteTime: String        //примечание о времени начала занятия
 )
 
 //график
