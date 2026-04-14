@@ -16,8 +16,21 @@ fun main() = runBlocking {
 
     val api = UniversityApi(logUrl) // Укажите реальный URL
     val parser = ScheduleParser()
+    println("Выбор режима")
+    println("1: web")
+    println("2: local")
+    print("ввод: ")
+    val input = readLine()
+    if (input?.toInt() == 1) {
+        chekSheduleWeb(api, parser)
+    } else if (input?.toInt() == 2) {
+        chekScheduleLocal()
+    }
 
-    // Ввод данных (в реальном приложении будет UI)
+}
+
+fun chekSheduleWeb(api: UniversityApi, parser: ScheduleParser) = runBlocking {
+    // Ввод данных
     print("Логин: ")
     val login = readLine() ?: return@runBlocking
 
@@ -51,9 +64,16 @@ fun main() = runBlocking {
     printSchedule(schedule)
 }
 
-fun chekSchedule() = runBlocking {
+fun chekScheduleLocal() = runBlocking {
+    val files = listOf(
+        "/home/max/Windows-SSD/Users/mamon/Documents/черновик cursor/BGTIschedule/app/src/main/res/Персональный кабинет студента.html",
+        "/home/max/Windows-SSD/Users/mamon/Documents/черновик cursor/BGTIschedule/app/src/main/res/Персональный кабинет студента с дср.html"
+    )
     val parser = ScheduleParser()
-    val file = File("/home/max/Windows-SSD/Users/mamon/Documents/черновик cursor/BGTIschedule/app/src/main/res/Персональный кабинет студента.html")
+    for (f in files) println(f)
+    print("выбор файла:")
+    val input = readLine().toString().toInt()
+    val file = File(files[input])
     val html = try {
         // Читаем с кодировкой, которая используется на сайте (обычно UTF-8 или windows-1251)
         file.readText(Charsets.UTF_8)
@@ -82,7 +102,7 @@ private fun printSchedule(schedule: Schedule) {
     println("=" .repeat(60))
 
     schedule.lessons.forEach { lesson ->
-        println("\n📌 ${lesson.day} (${lesson.date})")
+        println("\n📌 ${lesson.day} | ${lesson.date}")
         println("   Пара: ${lesson.lessonNumber} (${lesson.time})")
         println("   Предмет: ${lesson.subject}")
         println("   Тип: ${lesson.type}")
