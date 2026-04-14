@@ -86,12 +86,16 @@ class ScheduleParser {
 
 
             val fullText = box.getTextWithStyle()
+            /*
+            println("+".repeat(60))
+            println(fullText)
+            println("+".repeat(60))
+            */
 
             for (styled in fullText) {
                 when {
                     styled.style.contains("font-family:'RobotoMed', Tahoma, Arial") &&
-                            styled.style.contains("font-size:18px") &&
-                            isClassroom(styled.text) -> {
+                            styled.style.contains("font-size:18px") -> {
                         classroom = styled.text
                     }
                     styled.style.contains("margin-bottom:1px") -> {
@@ -108,23 +112,21 @@ class ScheduleParser {
                             styled.style.contains("margin-top:7px") -> {
                                 teacher = styled.text
                             }
+                    styled.text.startsWith("Тема занятия:") -> {
+                        topic = box.text().substringAfter("Тема занятия:", "")
+                    }
                     styled.style.contains("color:#909090") &&
                             styled.style.contains("text-shadow:none") &&
-                            isTopic(styled.text) -> {
-                                topic = styled.text
-                            }
-                    styled.style.contains("color:#909090") &&
-                            styled.style.contains("text-shadow:none") &&
-                            isNote(styled.text) -> {
+                            styled.text.startsWith("Примечание:") -> {
                                 note = styled.text
                             }
                     styled.style.contains("padding-top:7px") &&
                             styled.style.contains("color:#909090") &&
                             styled.style.contains("text-shadow:none") &&
-                            isEstimation(styled.text) -> {
+                            styled.text.startsWith("Оценка:") -> {
                                 estimation = styled.text
                             }
-                    isNoteTime(styled.text) -> {
+                    styled.text.startsWith("Начало в") -> {
                         noteTime = styled.text
                     }
                 }
@@ -148,51 +150,6 @@ class ScheduleParser {
         } catch (e: Exception) {
             null
         }
-    }
-
-    // Парсинг кабинета
-    private fun extractClassroom(info: String): String {
-        val audRegex = "Ауд\\.\\s*([^\\n]+?)(?=\\s{2,}|Лекция|Практическое занятие|Лабораторная работа|Экзамен|Консультация|Зачёт|$)".toRegex()
-        val aud = audRegex.find(info)?.groupValues?.get(1)?.trim()
-        if (!aud.isNullOrBlank()) return aud
-
-        // Иногда аудитория без "Ауд." (например "спортзал БКПТ")
-        val firstLine = info.trim().lineSequence().firstOrNull()?.trim().orEmpty()
-        return if (firstLine.isNotBlank()) firstLine else "Не указана"
-    }
-
-    private fun extractSubject(info: String): String {
-        val regex = "(?:\\)\\s*|^)([^\\n]+?)(?=\\s+(?:|$))".toRegex()
-        val subject = regex.find(info)?.groupValues?.get(1)?.trim().orEmpty()
-        return if (subject.isBlank() || subject.startsWith("Ауд.")) "Не указан" else subject
-    }
-
-    private fun extractType(info: String): String {
-        return when {
-            "Лекция" in info -> "Лекция"
-            "Практическое" in info -> "Практическое занятие"
-            "Лабораторная" in info -> "Лабораторная работа"
-            "Экзамен" in info -> "экзамен"
-            "Консультация" in info -> "Консультация"
-            "Зачёт" in info -> "Зачёт"
-
-            else -> "Не указан"
-        }
-    }
-
-    private fun extractTeacher(info: String): String {
-        val regex = "([А-ЯЁ][а-яё]+\\s+[А-ЯЁ]\\.\\s*[А-ЯЁ]\\.)".toRegex()
-        return regex.find(info)?.groupValues?.get(1)?.replace("\\s+".toRegex(), " ") ?: "Не указан"
-    }
-
-    private fun extractTopic(info: String): String {
-        val regex = "Тема занятия:\\s*(.+)".toRegex()
-        return regex.find(info)?.groupValues?.get(1)?.trim() ?: ""
-    }
-
-    private fun getNote(info: String): String {
-        val regex = "Начало в\\s[0-2][0-4]\\.[0-6][0-9]".toRegex()
-        return regex.find(info)?.groupValues?.get(1)?.trim() ?: ""
     }
 
     private fun getLessonTime(lessonNumber: String, shortTime: Boolean): String {
@@ -234,16 +191,4 @@ class ScheduleParser {
 
     data class StyledText(val text: String, val style: String)
 
-    // 📍 Аудитория: Ауд. 304 (2 корпус)
-    private fun isClassroom(text: String): Boolean {
-        return text.startsWith("Ауд.") ||
-                text.startsWith("спортзал") ||
-                text.startsWith("чит.зал") ||
-                Regex("""Ауд\.\s*\d{1,3}\s*\(""").containsMatchIn(text)
-    }
-
-    private fun isTopic(text: String): Boolean { return text.startsWith("Тема занятия: ") }
-    private fun isNote(text: String): Boolean { return text.startsWith("Примечание: ") }
-    private fun isEstimation(text: String): Boolean { return text.startsWith("Оценка: ") }
-    private fun isNoteTime(text: String): Boolean { return text.startsWith("Начало в ") }
 }
