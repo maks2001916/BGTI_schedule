@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.example.bgtischedule.datebase.AppDatabase
 import com.example.bgtischedule.ui.AppRoot
 import com.example.bgtischedule.ui.theme.BGTIScheduleTheme
 
