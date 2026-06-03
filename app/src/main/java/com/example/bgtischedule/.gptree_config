@@ -1,0 +1,30 @@
+# GPTree Local Config
+version: 3
+# Whether to use .gitignore
+useGitIgnore: true
+# File types to include (e.g., .py,.js)
+includeFileTypes: *
+# File types to exclude when includeFileTypes is '*'
+excludeFileTypes: 
+# Output file name
+outputFile: gptree_output.txt
+# Whether to save the output file at all
+saveOutputFile: true
+# Whether to output the file locally or relative to the project directory
+outputFileLocally: true
+# Whether to copy the output to the clipboard
+copyToClipboard: false
+# Whether to use safe mode (prevent overly large files from being combined)
+safeMode: true
+# Whether to store the files chosen in the config file (--save, -s)
+storeFilesChosen: true
+# Whether to include line numbers in the output (--line-numbers, -n)
+lineNumbers: false
+# Whether to show ignored files in the directory tree
+showIgnoredInTree: false
+# Whether to show only default ignored files in the directory tree while still respecting gitignore
+showDefaultIgnoredInTree: false
+# Previously selected files (when using the -s or --save flag previously)
+previousFiles: api/UniversityApi.kt,data/auth/AuthStateManager.kt,data/SecureCredentialsStore.kt,datebase/AppDatabase.kt,datebase/ScheduleDao.kt,datebase/ScheduleRepository.kt,datebase/db.kt,model/ScheduleModels.kt,model/ScheduleUiModel.kt,model/StudentModel.kt,model/SyncResult.kt,parser/ScheduleParser.kt,service/Request.kt,ui/shedule/DayHeader.kt,ui/shedule/LessonCard.kt,ui/shedule/LessonMapper.kt,ui/shedule/LessonTimeGraph.kt,ui/shedule/MiniFloorPlan.kt,ui/shedule/ScheduleHeader.kt,ui/theme/Color.kt,ui/theme/Theme.kt,ui/theme/Type.kt,ui/viewmodel/MainViewModel.kt,ui/widget/AppWidgetProvider.kt,ui/widget/ScheduleGlanceWidget.kt,ui/widget/ScheduleGlanceWidgetReceiver.kt,ui/AppRoot.kt,Dependencies.kt,MainActivity.kt,gptree_output.txt,main.kt
+# Excluded directories (when using the -s or --save flag previously or edited in UI)
+excludeDirs: 

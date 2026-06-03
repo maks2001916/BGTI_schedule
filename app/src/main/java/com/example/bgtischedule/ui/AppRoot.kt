@@ -143,11 +143,10 @@ fun AppRoot(
 
     suspend fun authenticateActiveAccount(): Result<Unit> {
         val creds = credentialsStore.getActiveAccount()
-            ?: return Result.failure(Exception("Нет активного аккаунта"))
-                authManager.setAuthError("Нет активного аккаунта")
+        authManager.setAuthError("Нет активного аккаунта")
 
         authManager.setAuthLoading()
-        if (!api.login(creds.login, creds.password)) {
+        if (!api.login(creds?.login ?: "" , creds?.password ?: "")) {
             authManager.setAuthError("Не удалось авторизоваться на сервере. Проверьте логин и пароль.")
             return Result.failure(Exception("Не удалось авторизоваться на сервере"))
         }

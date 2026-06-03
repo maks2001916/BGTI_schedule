@@ -1,0 +1,30 @@
+# GPTree Local Config
+version: 3
+# Whether to use .gitignore
+useGitIgnore: true
+# File types to include (e.g., .py,.js)
+includeFileTypes: *
+# File types to exclude when includeFileTypes is '*'
+excludeFileTypes: 
+# Output file name
+outputFile: gptree_output.txt
+# Whether to save the output file at all
+saveOutputFile: true
+# Whether to output the file locally or relative to the project directory
+outputFileLocally: true
+# Whether to copy the output to the clipboard
+copyToClipboard: false
+# Whether to use safe mode (prevent overly large files from being combined)
+safeMode: true
+# Whether to store the files chosen in the config file (--save, -s)
+storeFilesChosen: true
+# Whether to include line numbers in the output (--line-numbers, -n)
+lineNumbers: false
+# Whether to show ignored files in the directory tree
+showIgnoredInTree: false
+# Whether to show only default ignored files in the directory tree while still respecting gitignore
+showDefaultIgnoredInTree: false
+# Previously selected files (when using the -s or --save flag previously)
+previousFiles: app/src/main/java/com/example/bgtischedule/api/UniversityApi.kt,app/src/main/java/com/example/bgtischedule/data/auth/AuthStateManager.kt,app/src/main/java/com/example/bgtischedule/data/SecureCredentialsStore.kt,app/src/main/java/com/example/bgtischedule/datebase/AppDatabase.kt,app/src/main/java/com/example/bgtischedule/datebase/ScheduleDao.kt,app/src/main/java/com/example/bgtischedule/datebase/ScheduleRepository.kt,app/src/main/java/com/example/bgtischedule/datebase/db.kt,app/src/main/java/com/example/bgtischedule/model/ScheduleModels.kt,app/src/main/java/com/example/bgtischedule/model/ScheduleUiModel.kt,app/src/main/java/com/example/bgtischedule/model/StudentModel.kt,app/src/main/java/com/example/bgtischedule/model/SyncResult.kt,app/src/main/java/com/example/bgtischedule/parser/ScheduleParser.kt,app/src/main/java/com/example/bgtischedule/service/Request.kt,app/src/main/java/com/example/bgtischedule/ui/shedule/DayHeader.kt,app/src/main/java/com/example/bgtischedule/ui/shedule/LessonCard.kt,app/src/main/java/com/example/bgtischedule/ui/shedule/LessonMapper.kt,app/src/main/java/com/example/bgtischedule/ui/shedule/LessonTimeGraph.kt,app/src/main/java/com/example/bgtischedule/ui/shedule/MiniFloorPlan.kt,app/src/main/java/com/example/bgtischedule/ui/shedule/ScheduleHeader.kt,app/src/main/java/com/example/bgtischedule/ui/theme/Color.kt,app/src/main/java/com/example/bgtischedule/ui/theme/Theme.kt,app/src/main/java/com/example/bgtischedule/ui/theme/Type.kt,app/src/main/java/com/example/bgtischedule/ui/viewmodel/MainViewModel.kt,app/src/main/java/com/example/bgtischedule/ui/widget/AppWidgetProvider.kt,app/src/main/java/com/example/bgtischedule/ui/widget/ScheduleGlanceWidget.kt,app/src/main/java/com/example/bgtischedule/ui/widget/ScheduleGlanceWidgetReceiver.kt,app/src/main/java/com/example/bgtischedule/ui/AppRoot.kt,app/src/main/java/com/example/bgtischedule/Dependencies.kt,app/src/main/java/com/example/bgtischedule/MainActivity.kt,app/src/main/java/com/example/bgtischedule/gptree_output.txt,app/src/main/java/com/example/bgtischedule/main.kt
+# Excluded directories (when using the -s or --save flag previously or edited in UI)
+excludeDirs: 
