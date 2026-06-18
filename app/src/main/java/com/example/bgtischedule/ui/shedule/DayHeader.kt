@@ -22,7 +22,7 @@ fun DayHeader(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Вертикальная линия-разделитель
+
         Box(
             modifier = Modifier
                 .width(3.dp)
@@ -42,6 +42,7 @@ fun DayHeader(
                 ),
                 color = MaterialTheme.colorScheme.onSurface
             )
+            Spacer(modifier = Modifier.size(10.dp))
             Text(
                 text = date,
                 style = MaterialTheme.typography.bodyMedium,

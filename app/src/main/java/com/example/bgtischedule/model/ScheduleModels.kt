@@ -4,6 +4,8 @@ import com.example.bgtischedule.datebase.LessonEntity
 
 //занятие
 data class Lesson(
+    /** ID записи в БД (0 — если с сервера без сохранения) */
+    val id: Long = 0,
     /** Группа */
     val group: String,
     /** День недели */
@@ -33,8 +35,8 @@ data class Lesson(
 ) {
 
     fun toLessonDbEntity(): LessonEntity = LessonEntity(
-        0,
-        0,
+        id = id,
+        weekId = 0,
         group = group,
         dayOfWeek = day,
         date = date,

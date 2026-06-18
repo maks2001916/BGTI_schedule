@@ -57,7 +57,7 @@ data class LessonEntity(
     val contentHash: String = ""
 )  {
     fun toLesson(): Lesson = Lesson(
-        /** Группа */
+        id = id,
         group = group,
         /** день недели */
         day = dayOfWeek,

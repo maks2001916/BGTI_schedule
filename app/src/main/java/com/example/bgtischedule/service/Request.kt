@@ -32,7 +32,7 @@ class Request(
             val isLoggedIn = api.login(login, password)
             if (!isLoggedIn) {
                 Log.e(TAG, "Ошибка авторизации")
-                return@withContext SyncResult.Error("Не удалось авторизоваться")
+                return@withContext loadFromCache(group)
             }
 
             val html = api.getSchedulePage()
@@ -67,6 +67,11 @@ class Request(
             Log.e(TAG, "Unexpected error", e)
             loadFromCache(group)
         }
+    }
+
+    /** Загрузка расписания только из локальной БД (без сети) */
+    suspend fun loadCachedSchedule(group: String): SyncResult = withContext(Dispatchers.IO) {
+        loadFromCache(group)
     }
 
     private suspend fun loadFromCache(group: String): SyncResult {

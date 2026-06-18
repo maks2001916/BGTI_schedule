@@ -23,8 +23,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
@@ -58,10 +56,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -73,15 +71,22 @@ import com.example.bgtischedule.data.auth.AuthStateManager
 import com.example.bgtischedule.data.model.SyncResult
 import com.example.bgtischedule.datebase.AppDatabase
 import com.example.bgtischedule.datebase.ScheduleRepository
-import com.example.bgtischedule.model.Schedule
-import com.example.bgtischedule.model.ScheduleUiModel
 import com.example.bgtischedule.service.Request
 import com.example.bgtischedule.ui.components.DayHeader
 import com.example.bgtischedule.ui.components.LessonCard
-import com.example.bgtischedule.ui.components.ScheduleHeader
+import androidx.compose.ui.text.style.TextOverflow
+import com.example.bgtischedule.ui.components.SchedulePageHeader
 import com.example.bgtischedule.model.ScheduleUiModel.*
 import com.example.bgtischedule.parser.ScheduleParser
 import com.example.bgtischedule.ui.mapper.LessonMapper
+import com.example.bgtischedule.ui.update.UpdateAvailableDialog
+import com.example.bgtischedule.update.DownloadState
+import com.example.bgtischedule.update.UpdateCheckResult
+import com.example.bgtischedule.update.UpdateInfo
+import com.example.bgtischedule.update.UpdateManager
+import android.content.Intent
+import android.net.Uri
+import java.io.File
 import kotlinx.coroutines.launch
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -93,7 +98,7 @@ import java.time.format.DateTimeFormatter
 private enum class AppSection(
     val title: String
 ) {
-    Home("Домой"),
+    Home("Рассписание"),
     Account("Аккаунт"),
     Behavior("Поведение"),
     Widget("Виджет"),
@@ -131,6 +136,83 @@ fun AppRoot(
     }
 
     val request = remember { Request(repository, scheduleParser, api) }
+    val updateManager = remember { UpdateManager() }
+    val downloadState by updateManager.downloadState.collectAsState()
+    var pendingUpdate by remember { mutableStateOf<UpdateInfo?>(null) }
+    var isCheckingUpdate by remember { mutableStateOf(false) }
+
+    suspend fun runUpdateCheck(showNoUpdateMessage: Boolean) {
+        isCheckingUpdate = true
+        try {
+            when (val result = updateManager.checkForUpdate(context)) {
+                is UpdateCheckResult.Available -> pendingUpdate = result.info
+                is UpdateCheckResult.UpToDate -> {
+                    if (showNoUpdateMessage) {
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Установлена последняя версия")
+                        }
+                    }
+                }
+                is UpdateCheckResult.Error -> {
+                    if (showNoUpdateMessage) {
+                        scope.launch { snackbarHostState.showSnackbar(result.message) }
+                    } else {
+                        Log.w(TAG, "Auto update check: ${result.message}")
+                    }
+                }
+            }
+        } finally {
+            isCheckingUpdate = false
+        }
+    }
+
+    // Автопроверка обновлений с GitHub (раз в 24 ч)
+    LaunchedEffect(Unit) {
+        if (UpdateManager.shouldRunAutoCheck(context)) {
+            runUpdateCheck(showNoUpdateMessage = false)
+            UpdateManager.markAutoCheckDone(context)
+        }
+    }
+
+    pendingUpdate?.let { updateInfo ->
+        UpdateAvailableDialog(
+            info = updateInfo,
+            downloadState = downloadState,
+            onDismiss = {
+                pendingUpdate = null
+                updateManager.resetDownloadState()
+            },
+            onDownloadAndInstall = {
+                scope.launch {
+                    if (downloadState is DownloadState.Ready) {
+                        val path = (downloadState as DownloadState.Ready).apkPath
+                        updateManager.installDownloadedApk(context, File(path))
+                            .onFailure {
+                                snackbarHostState.showSnackbar(
+                                    it.message ?: "Не удалось открыть установщик"
+                                )
+                            }
+                        return@launch
+                    }
+                    val fileResult = updateManager.downloadAndPrepareInstall(context, updateInfo)
+                    fileResult.onSuccess { file ->
+                        updateManager.installDownloadedApk(context, file)
+                            .onFailure {
+                                snackbarHostState.showSnackbar(
+                                    it.message ?: "Разрешите установку из неизвестных источников"
+                                )
+                            }
+                    }.onFailure {
+                        snackbarHostState.showSnackbar(it.message ?: "Ошибка загрузки")
+                    }
+                }
+            },
+            onOpenReleasePage = {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(updateInfo.releasePageUrl))
+                context.startActivity(intent)
+            }
+        )
+    }
 
     var section by rememberSaveable { mutableStateOf(AppSection.Home) }
     var activeAccount by remember { mutableStateOf(credentialsStore.getActiveAccount()) }
@@ -143,10 +225,12 @@ fun AppRoot(
 
     suspend fun authenticateActiveAccount(): Result<Unit> {
         val creds = credentialsStore.getActiveAccount()
-        authManager.setAuthError("Нет активного аккаунта")
-
+            ?: run {
+                authManager.setAuthError("Нет активного аккаунта")
+                return Result.failure(Exception("Нет активного аккаунта"))
+            }
         authManager.setAuthLoading()
-        if (!api.login(creds?.login ?: "" , creds?.password ?: "")) {
+        if (!api.login(creds.login, creds.password)) {
             authManager.setAuthError("Не удалось авторизоваться на сервере. Проверьте логин и пароль.")
             return Result.failure(Exception("Не удалось авторизоваться на сервере"))
         }
@@ -168,47 +252,92 @@ fun AppRoot(
     }
 
     Scaffold(
-        topBar = { CenterAlignedTopAppBar(title = { Text(section.title) }) },
+        topBar = {
+            if (section != AppSection.Home) {
+                CenterAlignedTopAppBar(title = { Text(section.title) })
+            }
+        },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
                     selected = section == AppSection.Home,
                     onClick = { section = AppSection.Home },
-                    icon = { Icon(Icons.Default.Home, contentDescription = "Домой") },
-                    label = { Text("Домой") }
+                    icon = { Icon(Icons.Default.Schedule, contentDescription = "Расписание") },
+                    label = {
+                        Text(
+                            text = "Расписание",
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    alwaysShowLabel = false
                 )
                 NavigationBarItem(
                     selected = section == AppSection.Account,
                     onClick = { section = AppSection.Account },
                     icon = { Icon(Icons.Default.AccountCircle, contentDescription = "Аккаунт") },
-                    label = { Text("Аккаунт") }
+                    label = {
+                        Text(
+                            text = "Аккаунт",
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    alwaysShowLabel = false
                 )
                 NavigationBarItem(
                     selected = section == AppSection.Behavior,
                     onClick = { section = AppSection.Behavior },
                     icon = { Icon(Icons.Default.Tune, contentDescription = "Поведение") },
-                    label = { Text("Поведение") }
+                    label = {
+                        Text(
+                            text = "Повед.",
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    alwaysShowLabel = false
                 )
                 NavigationBarItem(
                     selected = section == AppSection.Widget,
                     onClick = { section = AppSection.Widget },
                     icon = { Icon(Icons.Default.Widgets, contentDescription = "Виджет") },
-                    label = { Text("Виджет") }
+                    label = {
+                        Text(
+                            text = "Виджет",
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    alwaysShowLabel = false
                 )
                 NavigationBarItem(
                     selected = section == AppSection.Settings,
                     onClick = { section = AppSection.Settings },
                     icon = { Icon(Icons.Default.Settings, contentDescription = "Настройки") },
-                    label = { Text("Настройки") }
+                    label = {
+                        Text(
+                            text = "Настр.",
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    alwaysShowLabel = false
                 )
             }
         }
     ) { padding ->
         when (section) {
             AppSection.Home -> HomeScreen(
-                padding,
-                activeAccount,
+                padding = padding,
+                context = context,
+                activeAccount = activeAccount,
                 authState = authState,
                 request = request,
                 refreshTrigger = scheduleRefreshTrigger,
@@ -255,6 +384,12 @@ fun AppRoot(
                 Context.MODE_PRIVATE))
             AppSection.Settings -> SettingsScreen(
                 padding = padding,
+                context = context,
+                updateManager = updateManager,
+                isCheckingUpdate = isCheckingUpdate,
+                onCheckUpdate = {
+                    scope.launch { runUpdateCheck(showNoUpdateMessage = true) }
+                },
                 onLogout = {
                     scope.launch {
                         authManager.logout()
@@ -294,6 +429,7 @@ private fun loadLocalHtmlFile(context: Context, fileName: String): String? {
 @Composable
 private fun HomeScreen(
     padding: PaddingValues,
+    context: Context,
     activeAccount: Credentials?,
     authState: AuthStateManager.AuthState,
     request: Request,
@@ -301,41 +437,76 @@ private fun HomeScreen(
     onRetryAuth: suspend () -> Result<Unit>,
     onMessage: (String) -> Unit
 ) {
+    val prefs = remember {
+        context.getSharedPreferences("schedule_prefs", Context.MODE_PRIVATE)
+    }
 
-    var isLoading by remember { mutableStateOf(false) }
+    var isScheduleLoading by remember { mutableStateOf(false) }
     var scheduleUi by remember { mutableStateOf<List<DayGroupUi>?>(null) }
     var weekRange by remember { mutableStateOf("") }
     var lastSyncTime by remember { mutableStateOf<Long?>(null) }
+    var lastKnownGroup by remember(activeAccount?.id) {
+        mutableStateOf(
+            activeAccount?.let { prefs.getString(groupPrefsKey(it.id), null) }
+        )
+    }
 
     val scope = rememberCoroutineScope()
-    val group = authState.student?.group
 
-    suspend fun loadSchedule() {
-        val account = activeAccount
-        if (account == null || !authState.isAuthenticated || group.isNullOrBlank()) {
-            Log.w(TAG, "loadSchedule: account=$account, auth=${authState.isAuthenticated}, group=$group")
-            return
+    fun resolveGroup(): String? =
+        authState.student?.group?.takeIf { it.isNotBlank() }
+            ?: lastKnownGroup?.takeIf { it.isNotBlank() }
+
+    fun applyScheduleResult(result: SyncResult) {
+        when (result) {
+            is SyncResult.Success -> {
+                scheduleUi = LessonMapper.toDayGroups(result.schedule.lessons)
+                weekRange = result.schedule.weekRange
+                lastSyncTime = System.currentTimeMillis()
+                val group = result.schedule.studentFIO.group.ifBlank { resolveGroup().orEmpty() }
+                if (group.isNotBlank() && activeAccount != null) {
+                    lastKnownGroup = group
+                    prefs.edit().putString(groupPrefsKey(activeAccount.id), group).apply()
+                }
+            }
+            is SyncResult.Cached -> {
+                scheduleUi = LessonMapper.toDayGroups(result.schedule.lessons)
+                weekRange = result.schedule.weekRange
+                val group = result.schedule.studentFIO.group.ifBlank { resolveGroup().orEmpty() }
+                if (group.isNotBlank() && activeAccount != null) {
+                    lastKnownGroup = group
+                    prefs.edit().putString(groupPrefsKey(activeAccount.id), group).apply()
+                }
+            }
+            is SyncResult.Error -> {
+                Log.e(TAG, "schedule: ${result.message}")
+            }
         }
+    }
 
-        isLoading = true
+    suspend fun loadCachedScheduleSilent(group: String) {
+        when (val result = request.loadCachedSchedule(group)) {
+            is SyncResult.Cached, is SyncResult.Success -> applyScheduleResult(result)
+            else -> Unit
+        }
+    }
+
+    suspend fun loadScheduleFromNetwork() {
+        val account = activeAccount ?: return
+        val group = resolveGroup() ?: return
+
+        isScheduleLoading = true
         try {
-            Log.d(TAG, "loadSchedule: starting for group=$group")
-
+            Log.d(TAG, "loadSchedule: group=$group")
             val result = request.syncSchedule(
                 group = group,
                 login = account.login,
                 password = account.password
             )
-
             Log.d(TAG, "loadSchedule: result=$result")
-
             when (result) {
                 is SyncResult.Success -> {
-                    val dayGroups = LessonMapper.toDayGroups(result.schedule.lessons)
-                    scheduleUi = dayGroups
-                    weekRange = result.schedule.weekRange
-                    lastSyncTime = System.currentTimeMillis()
-
+                    applyScheduleResult(result)
                     if (result.changes.isNotEmpty()) {
                         val added = result.changes.count { it.type == SyncResult.ChangeType.ADDED }
                         val modified = result.changes.count { it.type == SyncResult.ChangeType.MODIFIED }
@@ -343,12 +514,10 @@ private fun HomeScreen(
                     }
                 }
                 is SyncResult.Cached -> {
-                    scheduleUi = LessonMapper.toDayGroups(result.schedule.lessons)
-                    weekRange = result.schedule.weekRange
+                    applyScheduleResult(result)
                     onMessage("Показано сохранённое расписание")
                 }
                 is SyncResult.Error -> {
-                    Log.e(TAG, "loadSchedule: Error: ${result.message}")
                     onMessage(result.message)
                 }
             }
@@ -356,161 +525,254 @@ private fun HomeScreen(
             Log.e(TAG, "loadSchedule: Exception", e)
             onMessage("Ошибка: ${e.message}")
         } finally {
-            isLoading = false
+            isScheduleLoading = false
         }
     }
 
-    // Загрузка при открытии домашней страницы, после авторизации или по триггеру
-    LaunchedEffect(activeAccount?.id, authState.isAuthenticated, group, refreshTrigger) {
-        Log.d(TAG, "LaunchedEffect: account=${activeAccount?.login}, auth=${authState.isAuthenticated}, group=$group")
-        if (activeAccount != null && authState.isAuthenticated && !group.isNullOrBlank()) {
-            loadSchedule()
+    // Сразу показываем кэш, не дожидаясь авторизации
+    LaunchedEffect(activeAccount?.id) {
+        lastKnownGroup = activeAccount?.let { prefs.getString(groupPrefsKey(it.id), null) }
+        lastKnownGroup?.let { loadCachedScheduleSilent(it) }
+    }
+
+    // Синхронизация с сервером (как при нажатии «Обновить») — не ждём флаг authState
+    LaunchedEffect(activeAccount?.id, authState.student?.group, lastKnownGroup, refreshTrigger) {
+        if (activeAccount != null && resolveGroup() != null) {
+            loadScheduleFromNetwork()
         }
     }
 
+    val hasSchedule = scheduleUi != null && weekRange.isNotEmpty()
+    val isBusy = authState.isLoading || isScheduleLoading
+
+    val statusMessage = when {
+        authState.isLoading -> "Авторизация..."
+        isScheduleLoading -> "Обновление расписания..."
+        !authState.isAuthenticated && authState.error != null && hasSchedule ->
+            authState.error!!
+        else -> ""
+    }
+
+    val showStatusBar = isBusy || (statusMessage.isNotEmpty() && hasSchedule)
+    val showStatusProgress = isBusy
+    val showAuthErrorCard = !authState.isAuthenticated && !isBusy && !hasSchedule && activeAccount != null
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding)
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-
-        Text("BGTI Schedule", style = MaterialTheme.typography.headlineSmall)
-
-
-
-        if (activeAccount == null) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                )
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Требуется авторизация",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Перейдите в раздел «Аккаунт» для входа",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
-        } else if (authState.isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator()
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Авторизация...",
-                        style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-        } else if (!authState.isAuthenticated) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                )
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Не удалось авторизоваться",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = authState.error ?: "Проверьте логин и пароль в разделе «Аккаунт»",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(onClick = {
-                        scope.launch {
-                            onRetryAuth().onFailure {
-                                onMessage(it.message ?: "Ошибка авторизации")
-                            }
-                        }
-                    }) {
-                        Text("Повторить вход")
-                    }
-                }
-            }
-        } else if(isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator()
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Загрузка расписания...",
-                        style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-        } else if (scheduleUi != null && weekRange.isNotEmpty()) {
-            ScheduleCard(
+        when {
+            activeAccount == null -> AuthRequiredCard()
+            else -> HomeScheduleLayout(
+                screenTitle = AppSection.Home.title,
+                showStatusBar = showStatusBar,
+                statusMessage = statusMessage,
+                showProgress = showStatusProgress,
+                isStatusError = !isBusy && !authState.isAuthenticated && authState.error != null,
+                hasSchedule = hasSchedule,
                 weekRange = weekRange,
-                dayGroups = scheduleUi!!,
-                onRefresh = {
-                    scope.launch { loadSchedule() }
-                }
+                scheduleUi = scheduleUi,
+                lastSyncTime = lastSyncTime,
+                showAuthErrorCard = showAuthErrorCard,
+                authError = authState.error,
+                showEmptyPlaceholder = authState.isAuthenticated && !isBusy && !hasSchedule,
+                onRefresh = { scope.launch { loadScheduleFromNetwork() } },
+                onRetryAuth = {
+                    scope.launch {
+                        onRetryAuth().onFailure {
+                            onMessage(it.message ?: "Ошибка авторизации")
+                        }
+                    }
+                },
+                onRetryLoad = { scope.launch { loadScheduleFromNetwork() } }
+            )
+        }
+    }
+}
+
+private fun groupPrefsKey(accountId: String) = "last_group_$accountId"
+
+/**
+ * Единая раскладка на всех этапах: строка статуса → расписание → (опционально) пустое/ошибка.
+ */
+@Composable
+private fun HomeScheduleLayout(
+    screenTitle: String,
+    showStatusBar: Boolean,
+    statusMessage: String,
+    showProgress: Boolean,
+    isStatusError: Boolean,
+    hasSchedule: Boolean,
+    weekRange: String,
+    scheduleUi: List<DayGroupUi>?,
+    lastSyncTime: Long?,
+    showAuthErrorCard: Boolean,
+    authError: String?,
+    showEmptyPlaceholder: Boolean,
+    onRefresh: () -> Unit,
+    onRetryAuth: () -> Unit,
+    onRetryLoad: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        SchedulePageHeader(
+            title = screenTitle,
+            weekRange = weekRange,
+            onRefresh = onRefresh
+        )
+
+        if (showStatusBar && statusMessage.isNotEmpty()) {
+            ScheduleStatusBar(
+                message = statusMessage,
+                showProgress = showProgress,
+                isError = isStatusError
+            )
+        }
+
+        if (hasSchedule && scheduleUi != null) {
+            ScheduleLessonsList(
+                modifier = Modifier.weight(1f),
+                dayGroups = scheduleUi
             )
 
-            // Инфо о последней синхронизации
             lastSyncTime?.let { time ->
-                val formatted = Instant
-                    .ofEpochMilli(time)
+                val formatted = Instant.ofEpochMilli(time)
                     .atZone(ZoneId.systemDefault())
                     .format(DateTimeFormatter.ofPattern("HH:mm dd.MM"))
-
                 Text(
                     text = "Обновлено: $formatted",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .align(Alignment.End)
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    textAlign = TextAlign.End
                 )
             }
-        } else {
-            // Нет данных
+        }
 
-            Log.i(TAG, "scheduleUi: $scheduleUi, weekRange: $weekRange")
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Default.Schedule,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Расписание не найдено",
-                        style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(onClick = {
-                        scope.launch { loadSchedule() }
-                        // Повторная попытка загрузки
-                        // (логика дублируется с LaunchedEffect, можно вынести)
-                    }) {
-                        Text("Попробовать снова")
-                    }
-                }
+        if (showAuthErrorCard) {
+            AuthErrorCard(error = authError, onRetry = onRetryAuth)
+        }
+
+        if (showEmptyPlaceholder) {
+            EmptySchedulePlaceholder(
+                modifier = Modifier.weight(1f),
+                onRetry = onRetryLoad
+            )
+        }
+    }
+}
+
+@Composable
+private fun ScheduleStatusBar(
+    message: String,
+    showProgress: Boolean = true,
+    isError: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (showProgress) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+        }
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (isError) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            }
+        )
+    }
+}
+
+@Composable
+private fun AuthRequiredCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Требуется авторизация",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Перейдите в раздел «Аккаунт» для входа",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
+
+@Composable
+private fun AuthErrorCard(
+    error: String?,
+    onRetry: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Не удалось авторизоваться",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = error ?: "Проверьте логин и пароль в разделе «Аккаунт»",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(onClick = onRetry) {
+                Text("Повторить вход")
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptySchedulePlaceholder(
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = Icons.Default.Schedule,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Расписание не найдено",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(onClick = onRetry) {
+                Text("Попробовать снова")
             }
         }
     }
@@ -527,6 +789,48 @@ fun HomeScreenPreviewLight() {
 
 
 @Composable
+private fun ScheduleLessonsList(
+    dayGroups: List<DayGroupUi>,
+    currentTimeColor: Color = MaterialTheme.colorScheme.primary,
+    modifier: Modifier = Modifier
+) {
+    var currentTime by remember { mutableStateOf(LocalTime.now()) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(60_000)
+            currentTime = LocalTime.now()
+        }
+    }
+
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        dayGroups.forEach { dayGroup ->
+            item(key = "day_${dayGroup.dayName}_${dayGroup.date}") {
+                DayHeader(
+                    dayName = dayGroup.dayName,
+                    date = dayGroup.date
+                )
+            }
+
+            items(
+                items = dayGroup.lessons,
+                key = { it.id }
+            ) { lesson ->
+                LessonCard(
+                    lesson = lesson,
+                    currentTime = currentTime,
+                    currentTimeColor = currentTimeColor
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ScheduleCard(
     weekRange: String,
     dayGroups: List<DayGroupUi>,
@@ -534,52 +838,18 @@ private fun ScheduleCard(
     onRefresh: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    var currentTime by remember { mutableStateOf(LocalTime.now()) }
-
-    // Обновляем время каждую минуту
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(60_000)
-        while (true) {
-            kotlinx.coroutines.delay(60_000)
-            currentTime = LocalTime.now()
-        }
-    }
-
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-    ) {
-        // Заголовок с диапазоном и временем
-        ScheduleHeader(
+    Column(modifier = modifier.fillMaxSize()) {
+        SchedulePageHeader(
+            title = "Расписание",
             weekRange = weekRange,
-            currentTimeColor = currentTimeColor,
-            onRefresh = onRefresh
+            onRefresh = onRefresh,
+            currentTimeColor = currentTimeColor
         )
-
-        // Список дней и занятий
-        LazyColumn(
-            contentPadding = PaddingValues(vertical = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            dayGroups.forEach { dayGroup ->
-                // Заголовок дня
-                item {
-                    DayHeader(
-                        dayName = dayGroup.dayName,
-                        date = dayGroup.date
-                    )
-                }
-
-                // Занятия дня
-                items(dayGroup.lessons, key = { it.id }) { lesson ->
-                    LessonCard(
-                        lesson = lesson,
-                        currentTime = currentTime,
-                        currentTimeColor = currentTimeColor
-                    )
-                }
-            }
-        }
+        ScheduleLessonsList(
+            dayGroups = dayGroups,
+            currentTimeColor = currentTimeColor,
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 
@@ -868,10 +1138,22 @@ private fun WidgetScreen(padding: PaddingValues, prefs: SharedPreferences) {
 @Composable
 private fun SettingsScreen(
     padding: PaddingValues,
+    context: Context,
+    updateManager: UpdateManager,
+    isCheckingUpdate: Boolean,
+    onCheckUpdate: () -> Unit,
     onLogout: suspend () -> Unit,
     onMessage: (String) -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val prefs = remember {
+        context.getSharedPreferences(UpdateManager.PREFS_NAME, Context.MODE_PRIVATE)
+    }
+    var autoUpdateCheck by rememberSaveable {
+        mutableStateOf(prefs.getBoolean(UpdateManager.KEY_AUTO_UPDATE_CHECK, true))
+    }
+    val versionName = remember { updateManager.currentVersionName(context) }
+    val versionCode = remember { updateManager.currentVersionCode(context) }
 
     Column(
         modifier = Modifier
@@ -881,6 +1163,54 @@ private fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Общие настройки", style = MaterialTheme.typography.titleLarge)
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Версия приложения",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = "$versionName (код $versionCode)",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Text("Обновления с GitHub", style = MaterialTheme.typography.titleMedium)
+
+        SettingsSwitch(
+            title = "Проверять обновления автоматически",
+            checked = autoUpdateCheck
+        ) {
+            autoUpdateCheck = it
+            prefs.edit().putBoolean(UpdateManager.KEY_AUTO_UPDATE_CHECK, it).apply()
+        }
+
+        Button(
+            onClick = onCheckUpdate,
+            enabled = !isCheckingUpdate,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isCheckingUpdate) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text(if (isCheckingUpdate) "Проверка…" else "Проверить обновления")
+            }
+        }
+
+        Text(
+            text = "Для публикации: создайте GitHub Release, прикрепите APK и укажите в описании versionCode: N",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
         Spacer(modifier = Modifier.height(8.dp))
         Button(
             onClick = {
@@ -913,3 +1243,4 @@ private fun SettingsSwitch(
         }
     }
 }
+

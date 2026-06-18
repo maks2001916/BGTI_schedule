@@ -19,25 +19,34 @@ data class Credentials(
 
 
 class SecureCredentialsStore(context: Context) {
-    private val masterKey = MasterKey.Builder(context)
-        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-        .build()
-
-    private val prefs = EncryptedSharedPreferences.create(
-        context,
-        FILE_NAME,
-        masterKey,
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-    )
+    private val prefs = createPrefs(context)
 
     private val json = Json { encodeDefaults = true }
 
     // === Ключи ===
     companion object {
         private const val FILE_NAME = "secure_credentials"
+        private const val FALLBACK_FILE_NAME = "secure_credentials_fallback"
         private const val KEY_ACCOUNTS = "accounts_list"
         private const val KEY_ACTIVE_ID = "active_account_id"
+
+        private fun createPrefs(context: Context): android.content.SharedPreferences {
+            return try {
+                val masterKey = MasterKey.Builder(context)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build()
+                EncryptedSharedPreferences.create(
+                    context,
+                    FILE_NAME,
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "EncryptedSharedPreferences failed, using fallback prefs", e)
+                context.getSharedPreferences(FALLBACK_FILE_NAME, Context.MODE_PRIVATE)
+            }
+        }
     }
     /** Получить все аккаунты */
     fun getAllAccounts(): List<Credentials> {

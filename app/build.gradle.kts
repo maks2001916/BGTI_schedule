@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.serialization)
@@ -19,7 +18,10 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        
+        val githubOwner = project.findProperty("github.repo.owner")?.toString() ?: "YOUR_GITHUB_USERNAME"
+        val githubRepo = project.findProperty("github.repo.name")?.toString() ?: "BGTIschedule"
+        buildConfigField("String", "GITHUB_OWNER", "\"$githubOwner\"")
+        buildConfigField("String", "GITHUB_REPO", "\"$githubRepo\"")
     }
 
     buildTypes {
@@ -36,14 +38,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-        }
-    }
-
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -93,3 +90,10 @@ dependencies {
     //implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation(libs.kotlinx.serialization.json)
 }
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
+
