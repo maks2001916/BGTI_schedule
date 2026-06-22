@@ -18,7 +18,15 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.bgtischedule.model.ScheduleUiModel
 
-/** Схематичный план этажа 2×2 с выделением комнаты и этажа */
+private const val INDICATOR_WIDTH_DP = 40f
+private const val SIZE_REDUCTION_FACTOR = 0.8f
+private const val ROOM_WIDTH_DP = 20f
+private const val ROOM_HEIGHT_DP = ROOM_WIDTH_DP*2
+private const val PADDING_DP = 4f
+private const val MAX_POSITION = 13
+
+
+/** Схематичный план этажа с выделением комнаты и этажа */
 @Composable
 fun MiniFloorPlan(
     floorPlan: ScheduleUiModel.FloorPlanUi,
@@ -30,37 +38,128 @@ fun MiniFloorPlan(
     val color = MaterialTheme.colorScheme.outlineVariant
     val fontSize = MaterialTheme.typography.labelSmall.fontSize
 
-    // Позиции 4 комнат на плане 2×2
-    val rooms = listOf(
-        RoomGrid(1, 1, Offset(10.toFloat(), 10.toFloat())),   // левая  верхняя
-        RoomGrid(1, 2, Offset(120.toFloat(), 10.toFloat())),   // правая верхняя
-        RoomGrid(2, 1, Offset(10.toFloat(), 80.toFloat())),   // левая  нижняя
-        RoomGrid(2, 2, Offset(120.toFloat(), 80.toFloat()))    // правая нижняя
+
+
+    val roomsByFloor = mapOf(
+        1 to listOf(
+            RoomData(1, 1, "103"),
+            RoomData(3, 1, "104"),
+            RoomData(4, 1, "105"),
+            RoomData(5, 1, "106"),
+            RoomData(6, 4, "Читательный зал"),
+            RoomData(10, 1, "107"),
+            RoomData(11, 1, "108"),
+            RoomData(13, 1, "санитарно-бытовое помещение"),
+            RoomData(1, 3, "Абонентский отдел", 2),
+            RoomData(4, 2, "101",2),
+            RoomData(6, 4, "Вестибюль",2),
+            RoomData(10, 1, "100", 2),
+            RoomData(11, 1, "99", 2),
+            RoomData(12, 1, "98", 2),
+            RoomData(13, 1, "97",2)
+        ),
+        2 to listOf(
+            RoomData(1, 1, "207"),
+            RoomData(3, 3, "208"),
+            RoomData(6, 3, "209"),
+            RoomData(9, 3, "210"),
+            RoomData(13, 1, "Санитарно-бытовая комната"),
+            RoomData(1, 1, "206", 2),
+            RoomData(2, 3, "205", 2),
+            RoomData(5, 3, "204", 2),
+            RoomData(8, 1, "203", 2),
+            RoomData(9, 3, "202", 2),
+            RoomData(12, 1, "201", 2),
+            RoomData(13, 1, "200", 2)
+        ),
+        3 to listOf(
+            RoomData(1, 1, "307"),
+            RoomData(3, 4, "308"),
+            RoomData(7, 1, "309"),
+            RoomData(8, 4, "310"),
+            RoomData(13, 1, "Санитарно-бытовая комната"),
+            RoomData(1, 1, "306", 2),
+            RoomData(2, 3, "305", 2),
+            RoomData(5, 3, "304", 2),
+            RoomData(8, 1, "303", 2),
+            RoomData(9, 3, "302", 2),
+            RoomData(12, 1, "301", 2),
+            RoomData(13, 1, "300", 2)
+        ),
+        4 to listOf(
+            RoomData(1, 1, "413"),
+            RoomData(3, 1, "414"),
+            RoomData(4, 1, "415"),
+            RoomData(5, 1, "416"),
+            RoomData(6, 1, "417"),
+            RoomData(7, 1, "418"),
+            RoomData(8, 1, "419"),
+            RoomData(9, 1, "420"),
+            RoomData(10, 1, "421"),
+            RoomData(11, 1, "422"),
+            RoomData(13, 1, "Санитарно-бытовая комната"),
+            RoomData(1, 1, "412", 2),
+            RoomData(2, 1, "411", 2),
+            RoomData(3, 1, "410", 2),
+            RoomData(4, 1, "409", 2),
+            RoomData(5, 1, "408", 2),
+            RoomData(6, 1, "407", 2),
+            RoomData(7, 1, "406", 2),
+            RoomData(8, 1, "405", 2),
+            RoomData(9, 1, "404", 2),
+            RoomData(10, 1, "403", 2),
+            RoomData(11, 2, "402", 2),
+            RoomData(13, 1, "401", 2)
+        )
     )
 
 
+    val rooms = roomsByFloor[floorPlan.floor] ?: emptyList()
+
+    // Рассчитываем размер Canvas: 13 позиций * (ширина + отступ) - 1 отступ
+    val canvasHeightDp = ((ROOM_HEIGHT_DP * 2.5) +(PADDING_DP *4) )
+
     Canvas(
         modifier = modifier
-            .size(80.dp)
-            .padding(4.dp)
+            .fillMaxWidth()
+            .height(canvasHeightDp.dp)
+            .padding(PADDING_DP.dp)
     ) {
-        val roomSize = Size(35.dp.toPx(), 20.dp.toPx())
 
-        // 🏢 Рисуем 4 комнаты (схематично)
+        val indicatorWidthPx = INDICATOR_WIDTH_DP.dp.toPx()
+        val paddingPx = PADDING_DP.dp.toPx()
+        val baseRoomWidthPx = ROOM_WIDTH_DP.dp.toPx()
+        val roomHeightPx = ROOM_HEIGHT_DP.dp.toPx()
+
+        val totalSlotsWidthPx = (baseRoomWidthPx * MAX_POSITION) + (paddingPx * (MAX_POSITION - 1))
+        val canvasWidthPx = totalSlotsWidthPx + indicatorWidthPx + paddingPx * 2
+        val canvasHeightPx = ((roomHeightPx * 2.5f) +(paddingPx *4) )
+
+
+        //val availableWidthPx = canvasWidthDp - INDICATOR_WIDTH_DP.dp.toPx() - (PADDING_DP.dp.toPx()*2)
+        //val baseSlotWidthPx = (availableWidthPx / MAX_POSITION.dp.toPx()) * SIZE_REDUCTION_FACTOR.dp.toPx()
+
         rooms.forEach { room ->
-            val isTarget = room.floor == floorPlan.floor &&
-                    room.position == (if (floorPlan.floor < 0.5f) 1 else 2)
+
+            val roomWidthPx = ((baseRoomWidthPx * room.size) + (paddingPx*(room.size-1)))
+            val roomHeightPx = ROOM_HEIGHT_DP.dp.toPx()
+            val slotWidthPx = baseRoomWidthPx + paddingPx
+            val x = indicatorWidthPx + paddingPx + (room.position - 1) * slotWidthPx - slotWidthPx
+
+            // Позиция Y: ряд 1 = верхний, ряд 2 = нижний (с отступом между рядами)
+            val y = if (room.row == 1) { paddingPx } else { paddingPx + roomHeightPx + roomHeightPx/2 }
+
+            val isTarget = room.number == floorPlan.roomNumber
 
             drawRoundRect(
-                color = if (isTarget) currentFloorColor
-                else color,
-                topLeft = room.offset,
-                size = roomSize,
+                color = if (isTarget) currentFloorColor else color,
+                topLeft = Offset(x,y),
+                size = Size(roomWidthPx, roomHeightPx),
                 cornerRadius = CornerRadius(4.dp.toPx()),
                 style = if (isTarget) Stroke(2.dp.toPx()) else Stroke(1.dp.toPx())
             )
 
-            // Номер комнаты (если целевая)
+            // Номер комнаты
             if (isTarget) {
                 drawText(
                     textMeasurer = textMeasurer,
@@ -69,26 +168,37 @@ fun MiniFloorPlan(
                         color = currentFloorColor,
                         fontSize = fontSize
                     ),
-                    topLeft = room.offset + Offset(5.dp.toPx(), 5.dp.toPx())
+                    topLeft = Offset(
+                        x + roomWidthPx/3,
+                        y + roomHeightPx/3
+                    )
                 )
             }
         }
 
+
         // Индикатор этажа (4 линии слева)
-        val indicatorX = -40f
-        for (floor in 1..4) {
-            val y = 5.dp.toPx() + (floor - 1) * 15.dp.toPx()
+
+        for (floor in 0..3) {
+            val y = (canvasHeightPx - roomHeightPx - ((floor - 1) * 50))
             drawLine(
                 color = if (floor == floorPlan.floor) currentFloorColor
                 else color,
-                start = Offset(indicatorX, y),
-                end = Offset(indicatorX + 12.dp.toPx(), y),
+                start = Offset(PADDING_DP, y),
+                end = Offset(INDICATOR_WIDTH_DP, y),
                 strokeWidth = if (floor == floorPlan.floor) 3.dp.toPx() else 1.dp.toPx(),
                 cap = StrokeCap.Round
             )
+
         }
     }
 }
 
 
-private data class RoomGrid(val floor: Int, val position: Int, val offset: Offset)
+/** Данные о комнате: номер, позиция в ряду (1..13), ряд (1=верхний, 2=нижний) */
+private data class RoomData(
+    val position: Int,
+    val size: Int,
+    val number: String,
+    val row: Int = 1
+)

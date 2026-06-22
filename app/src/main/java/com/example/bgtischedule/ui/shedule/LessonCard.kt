@@ -25,7 +25,7 @@ fun LessonCard(
         modifier = modifier
             .wrapContentSize()
             //.fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .padding(horizontal =4.dp, vertical = 4.dp),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = lesson.color.copy(alpha = 0.15f)
@@ -43,103 +43,113 @@ fun LessonCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(10.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+
             // 🔢 Левая часть: номер пары (выделенный блок)
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
+                horizontalAlignment = Alignment.Start,
                 modifier = Modifier
-                    .width(12.dp)
+                    //.width(15.dp)
                     .padding(top = 4.dp)
             ) {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = lesson.color,
-                    modifier = Modifier
-                        .size(25.dp)
-                        .wrapContentSize(Alignment.Center)
-                ) {
-                    Text(
-                        text = "${lesson.lessonNumber}",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                    )
-                }
-            }
-
-            /* // Правая часть: информация + график + план
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                 // Заголовок: предмет + тип
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {*/
-                    Column(modifier = Modifier.weight(1f)) {
+                Row() {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = lesson.color,
+                        modifier = Modifier
+                            //.fillMaxWidth()
+                            .width(15.dp)
+                            .wrapContentSize(Alignment.CenterStart)
+                    ) {
                         Text(
-                            text = lesson.subject,
+                            text = "${lesson.lessonNumber}",
                             style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimary
                             ),
-                            color = MaterialTheme.colorScheme.onSurface
+                            modifier = Modifier
+                                .padding(
+                                    start = 2.dp,
+                                    end = 2.dp
+                                )
+                                .fillMaxWidth()
                         )
-                        if (lesson.type.isNotEmpty()) {
-                            Text(
-                                text = lesson.type,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        // Преподаватель
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = lesson.teacher,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        // Тема занятия (если есть)
-                        if (lesson.topic.isNotEmpty()) {
-                            Text(
-                                text = "${lesson.topic}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                            )
-                        }
-
                     }
-
-            Column {
-                // 🗺️ Мини-план этажа (справа)
+// кабинет
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = lesson.color.copy(alpha = 0.2f),
+                        modifier = Modifier.padding(start = 8.dp)
+                    ) {
+                        Text(
+                            text = lesson.floorPlan.building,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Medium
+                            ),
+                            color = lesson.color,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                    // кабинет
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = lesson.color.copy(alpha = 0.2f),
+                        modifier = Modifier.padding(start = 8.dp)
+                    ) {
+                        Text(
+                            text = lesson.classroom,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Medium
+                            ),
+                            color = lesson.color,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
                 MiniFloorPlan(
                     floorPlan = lesson.floorPlan,
                     currentFloorColor = lesson.color
                 )
-                // кабинет
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = lesson.color.copy(alpha = 0.2f),
-                    modifier = Modifier.padding(start = 8.dp)
-                ) {
+
+                Text(
+                    text = lesson.subject,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (lesson.type.isNotEmpty()) {
                     Text(
-                        text = lesson.classroom,
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.Medium
-                        ),
-                        color = lesson.color,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        text = lesson.type,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+
+                // Преподаватель
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = lesson.teacher,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                // Тема занятия (если есть)
+                if (lesson.topic.isNotEmpty()) {
+                    Text(
+                        text = "${lesson.topic}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    )
+                }
+
             }
+
                 /*}
 
             }*/
@@ -172,7 +182,7 @@ fun LessonCardPreview() {
             "302",
             "тема",
             Color.Cyan,
-            FloorPlanUi("2 корпус", 4, "302")
+            FloorPlanUi("2 корпус", 3, "302")
         ), LocalTime.now()
     )
 }

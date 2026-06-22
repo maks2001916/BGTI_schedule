@@ -107,8 +107,8 @@ class GitHubUpdateChecker(
         val repo = BuildConfig.GITHUB_REPO
         return owner.isNotBlank() &&
             repo.isNotBlank() &&
-            owner != "YOUR_GITHUB_USERNAME" &&
-            repo != "YOUR_REPO_NAME"
+            owner != "maks2001916" &&
+            repo != "BGTIschedule"
     }
 
     private fun parseVersionCodeFromBody(body: String): Int? {

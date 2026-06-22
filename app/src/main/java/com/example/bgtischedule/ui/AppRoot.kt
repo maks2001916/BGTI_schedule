@@ -426,6 +426,7 @@ private fun loadLocalHtmlFile(context: Context, fileName: String): String? {
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 private fun HomeScreen(
     padding: PaddingValues,
@@ -457,6 +458,7 @@ private fun HomeScreen(
         authState.student?.group?.takeIf { it.isNotBlank() }
             ?: lastKnownGroup?.takeIf { it.isNotBlank() }
 
+    @RequiresApi(Build.VERSION_CODES.GINGERBREAD)
     fun applyScheduleResult(result: SyncResult) {
         when (result) {
             is SyncResult.Success -> {
@@ -598,6 +600,7 @@ private fun groupPrefsKey(accountId: String) = "last_group_$accountId"
 /**
  * Единая раскладка на всех этапах: строка статуса → расписание → (опционально) пустое/ошибка.
  */
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 private fun HomeScheduleLayout(
     screenTitle: String,
@@ -788,6 +791,7 @@ fun HomeScreenPreviewLight() {
 
 
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 private fun ScheduleLessonsList(
     dayGroups: List<DayGroupUi>,
@@ -1106,6 +1110,7 @@ private fun BehaviorScreen(padding: PaddingValues, prefs: SharedPreferences) {
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.GINGERBREAD)
 @Composable
 private fun WidgetScreen(padding: PaddingValues, prefs: SharedPreferences) {
     var showTeacher by rememberSaveable { mutableStateOf(prefs.getBoolean("widget_teacher", true)) }
