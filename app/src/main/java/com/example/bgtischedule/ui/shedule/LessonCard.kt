@@ -1,5 +1,7 @@
 package com.example.bgtischedule.ui.components
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -52,6 +54,7 @@ fun LessonCard(
                 horizontalAlignment = Alignment.Start,
                 modifier = Modifier
                     //.width(15.dp)
+                    .fillMaxWidth()
                     .padding(top = 4.dp)
             ) {
                 Row() {
@@ -77,7 +80,7 @@ fun LessonCard(
                                 .fillMaxWidth()
                         )
                     }
-// кабинет
+                    // корпус
                     Surface(
                         shape = RoundedCornerShape(16.dp),
                         color = lesson.color.copy(alpha = 0.2f),
@@ -108,17 +111,25 @@ fun LessonCard(
                         )
                     }
                 }
-                MiniFloorPlan(
-                    floorPlan = lesson.floorPlan,
-                    currentFloorColor = lesson.color
-                )
+
+                        MiniFloorPlan(
+                            floorPlan = lesson.floorPlan,
+                            currentFloorColor = lesson.color,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                //.size(400.dp,200.dp)
+                                //.width(300.dp)
+                                //.height(120.dp)
+                                //.wrapContentHeight()
+                        )
 
                 Text(
                     text = lesson.subject,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.SemiBold
                     ),
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(start = 10.dp)
                 )
                 if (lesson.type.isNotEmpty()) {
                     Text(
@@ -167,6 +178,7 @@ fun LessonCard(
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Preview(showBackground = true)
 @Composable
 fun LessonCardPreview() {
@@ -182,7 +194,7 @@ fun LessonCardPreview() {
             "302",
             "тема",
             Color.Cyan,
-            FloorPlanUi("2 корпус", 3, "302")
+            FloorPlanUi("1 корпус", 1, "16")
         ), LocalTime.now()
     )
 }
