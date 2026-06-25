@@ -25,8 +25,6 @@ fun LessonCard(
 ) {
     Card(
         modifier = modifier
-            .wrapContentSize()
-            //.fillMaxWidth()
             .padding(horizontal =4.dp, vertical = 4.dp),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
@@ -53,7 +51,6 @@ fun LessonCard(
             Column(
                 horizontalAlignment = Alignment.Start,
                 modifier = Modifier
-                    //.width(15.dp)
                     .fillMaxWidth()
                     .padding(top = 4.dp)
             ) {
@@ -115,12 +112,9 @@ fun LessonCard(
                         MiniFloorPlan(
                             floorPlan = lesson.floorPlan,
                             currentFloorColor = lesson.color,
-                            modifier = Modifier
+                            modifier = modifier
                                 .fillMaxWidth()
-                                //.size(400.dp,200.dp)
-                                //.width(300.dp)
-                                //.height(120.dp)
-                                //.wrapContentHeight()
+                                .wrapContentHeight()
                         )
 
                 Text(
@@ -128,8 +122,7 @@ fun LessonCard(
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.SemiBold
                     ),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(start = 10.dp)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 if (lesson.type.isNotEmpty()) {
                     Text(
@@ -161,18 +154,17 @@ fun LessonCard(
 
             }
 
-                /*}
 
-            }*/
             // График времени
-            /*LessonTimeGraph(
+            /**LessonTimeGraph(
                 startTime = lesson.startTime,
                 endTime = lesson.endTime,
                 currentTime = if (currentTime.toString().let { it >= lesson.startTime && it <= lesson.endTime })
                     currentTime else null,
                 currentTimeColor = currentTimeColor,
                 modifier = Modifier.wrapContentWidth().fillMaxHeight()
-            )*/
+            )
+            */
 
         }
     }
@@ -194,7 +186,7 @@ fun LessonCardPreview() {
             "302",
             "тема",
             Color.Cyan,
-            FloorPlanUi("1 корпус", 1, "16")
+            FloorPlanUi("2 корпус", 2, "16")
         ), LocalTime.now()
     )
 }
