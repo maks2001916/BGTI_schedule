@@ -2,6 +2,8 @@ package com.example.bgtischedule.update
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
+import androidx.annotation.RequiresApi
 import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,6 +16,7 @@ class UpdateManager(
     private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
     val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
 
+    @RequiresApi(Build.VERSION_CODES.P)
     fun currentVersionCode(context: Context): Int {
         val info = context.packageManager.getPackageInfo(
             context.packageName,
@@ -30,6 +33,7 @@ class UpdateManager(
         return info.versionName ?: "?"
     }
 
+    @RequiresApi(Build.VERSION_CODES.P)
     suspend fun checkForUpdate(context: Context): UpdateCheckResult {
         return checker.checkForUpdate(currentVersionCode(context))
     }

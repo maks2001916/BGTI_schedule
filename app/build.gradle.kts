@@ -13,13 +13,13 @@ android {
         applicationId = "com.example.bgtischedule"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 3
+        versionName = "1.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        val githubOwner = project.findProperty("github.repo.owner")?.toString() ?: "YOUR_GITHUB_USERNAME"
-        val githubRepo = project.findProperty("github.repo.name")?.toString() ?: "BGTIschedule"
+        val githubOwner = project.findProperty("github.repo.owner")?.toString() ?: "maks2001916"
+        val githubRepo = project.findProperty("github.repo.name")?.toString() ?: "BGTI_schedule"
         buildConfigField("String", "GITHUB_OWNER", "\"$githubOwner\"")
         buildConfigField("String", "GITHUB_REPO", "\"$githubRepo\"")
     }

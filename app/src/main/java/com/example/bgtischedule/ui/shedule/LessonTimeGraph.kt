@@ -1,6 +1,7 @@
 package com.example.bgtischedule.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -25,6 +26,8 @@ import java.time.format.DateTimeFormatter
  * @param currentTime Текущее время (если в диапазоне пары)
  * @param currentTimeColor Цвет линии текущего времени
  */
+
+
 @Composable
 fun LessonTimeGraph(
     startTime: String,
@@ -32,6 +35,9 @@ fun LessonTimeGraph(
     currentTime: LocalTime? = null,
     currentTimeColor: Color? = null,
     modifier: Modifier = Modifier
+        .fillMaxHeight()
+        //.wrapContentWidth()
+        //.width(20.dp)
 ) {
     val actualColor = currentTimeColor ?: MaterialTheme.colorScheme.primary
     val timeLineColor = MaterialTheme.colorScheme.outlineVariant
@@ -56,79 +62,114 @@ fun LessonTimeGraph(
     val currentPercent = currentTime?.let { Duration.between(dayStart, it).toMinutes().toFloat() / dayDuration }
 
 
-    Canvas(
-        modifier = modifier
-            //.fillMaxWidth()
-            .height(40.dp)
-            .padding(vertical = 8.dp)
-    ) {
-        val canvasWidth = size.width
-        val canvasHeight = size.height
-        val horizontalCenter = canvasWidth / 2
 
-        // Вертикальная ось времени
-        drawLine(
-            color = timeLineColor,
-            start = Offset(0f, 0f),
-            end = Offset(horizontalCenter, canvasHeight),
-            strokeWidth = 1.dp.toPx()
-        )
+        Canvas(
+            modifier = Modifier
+                .fillMaxHeight()
+        ) {
+            val lineStartX = 0.dp.toPx()
+            val lineEndX = size.width
+            val lineTimeX = size.width / 2
+            val timeStartX = 0.dp.toPx()
+            val paddingY = 10.dp.toPx()
 
-        // 🔷 Маркер начала пары
-        val startY = 0f //startPercent * canvasWidth
-        drawLine(
-            color = percentColor,
-            start = Offset(horizontalCenter - 10.dp.toPx(), startY),
-            end = Offset(horizontalCenter + 10.dp.toPx(), startY),
-            strokeWidth = 2.dp.toPx(),
-            cap = StrokeCap.Round
-        )
-        // Подпись начала
 
-        drawText(
-            textMeasurer = textMeasurer,
-            text = startTime,
-            style = TextStyle(
-                color = textColor,
-                fontSize = textFontSize
-            ),
-            topLeft = Offset(horizontalCenter - 40.dp.toPx(), startY - 5.dp.toPx())
-        )
+            val canvasWidth = size.width
+            val canvasHeight = size.height
+            val horizontalCenter = canvasWidth / 2
 
-        // Маркер конца пары
-        val endY = endPercent * canvasWidth
-        drawLine(
-            color = percentColor,
-            start = Offset( horizontalCenter - 10.dp.toPx(), endY),
-            end = Offset( horizontalCenter + 10.dp.toPx(),endY),
-            strokeWidth = 2.dp.toPx(),
-            cap = StrokeCap.Round
-        )
-        // Подпись конца
-        drawText(
-            textMeasurer = textMeasurer,
-            text = endTime,
-            style = TextStyle(
-                color = textColor,
-                fontSize = textFontSize
-            ),
-            topLeft = Offset(horizontalCenter - 40.dp.toPx(), endY + 0.dp.toPx())
-        )
+            /**
+            drawLine(
+                color = timeLineColor,
+                start = Offset(0f, 0f),
+                end = Offset(size.width, 0f),
+                strokeWidth = 2.dp.toPx()
+            )
+            drawLine(
+                color = timeLineColor,
+                start = Offset(0f, 0f),
+                end = Offset(0f, size.height),
+                strokeWidth = 2.dp.toPx()
+            )
+            drawLine(
+                color = timeLineColor,
+                start = Offset(size.width, 0f),
+                end = Offset(size.width, size.height),
+                strokeWidth = 2.dp.toPx()
+            )
+            drawLine(
+                color = timeLineColor,
+                start = Offset(0f, size.height),
+                end = Offset(size.width, size.height),
+                strokeWidth = 2.dp.toPx()
+            )
+            */
 
-        // Линия текущего времени (если в диапазоне)
-        currentPercent?.let { percent ->
-            if (percent in startPercent..endPercent) {
-                val currentY = percent * canvasWidth
-                drawLine(
-                    color = actualColor,
-                    start = Offset( horizontalCenter - 25.dp.toPx(), currentY),
-                    end = Offset( horizontalCenter + 25.dp.toPx(), currentY),
-                    strokeWidth = 3.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
+            // Вертикальная ось времени
+            drawLine(
+                color = timeLineColor,
+                start = Offset(lineTimeX, paddingY),
+                end = Offset(lineTimeX, canvasHeight - paddingY),
+                strokeWidth = 2.dp.toPx()
+            )
+
+            // Маркер начала пары
+            val startY = 2f //startPercent * canvasWidth
+            drawLine(
+                color = percentColor,
+                start = Offset(lineStartX, paddingY),
+                end = Offset(lineEndX, paddingY),
+                strokeWidth = 2.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+            // Подпись начала
+
+            drawText(
+                textMeasurer = textMeasurer,
+                text = startTime,
+                style = TextStyle(
+                    color = textColor,
+                    fontSize = textFontSize
+                ),
+                topLeft = Offset(timeStartX, startY - 5.dp.toPx())
+            )
+
+            // Маркер конца пары
+            //val endY = endPercent * canvasHeight
+            val endY = canvasHeight - 2
+            drawLine(
+                color = percentColor,
+                start = Offset(lineStartX, endY - paddingY),
+                end = Offset(lineEndX, endY - paddingY),
+                strokeWidth = 2.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+            // Подпись конца
+            drawText(
+                textMeasurer = textMeasurer,
+                text = endTime,
+                style = TextStyle(
+                    color = textColor,
+                    fontSize = textFontSize
+                ),
+                topLeft = Offset(timeStartX, endY - 10.dp.toPx())
+            )
+
+            // Линия текущего времени (если в диапазоне)
+            currentPercent?.let { percent ->
+                if (percent in startPercent ..endPercent ) {
+                    val currentY = percent * canvasHeight
+                    drawLine(
+                        color = actualColor,
+                        start = Offset(lineStartX, currentY),
+                        end = Offset(lineEndX, currentY),
+                        strokeWidth = 3.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+                }
             }
         }
-    }
+
 }
 
 @Preview(showBackground = true)

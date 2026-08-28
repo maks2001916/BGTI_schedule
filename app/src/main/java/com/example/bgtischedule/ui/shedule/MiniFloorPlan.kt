@@ -179,7 +179,7 @@ fun MiniFloorPlan(
         val baseRoomWidthDp = (maxWidth - (INDICATOR_WIDTH_DP.dp + (PADDING.dp * (3 + MAX_POSITION))))     / MAX_POSITION
         // Высота Ячейки в Px
         val baseRoomHeightPx = baseRoomWidthDp
-        // Высота холста = аысота ячейки    * количество_позиций + отсступ       * (количчество позиций) + 1
+        // Высота холста = аысота ячейки    * количество_позиций + отсступ     * (количчество позиций) + 1
         val canvasHeight = baseRoomHeightPx * maxY.toFloat()     + (PADDING.dp * (maxY.toFloat()       + 1)) + PADDING.dp*2
 
         Canvas(
@@ -233,8 +233,8 @@ fun MiniFloorPlan(
                             fontSize = fontSize
                         ),
                         topLeft = Offset(
-                            (x + roomWidthPx / 3).dp.toPx(),
-                            (y + roomHeightPx / 3).dp.toPx()
+                            (x + roomWidthPx / 3),
+                            (y + roomHeightPx / 3)
                         )
                     )
                 }
@@ -247,11 +247,11 @@ fun MiniFloorPlan(
 
                 val y = (canvasHeight - (PADDING.dp*3) - (floor  * ((baseRoomHeightPx/2)-(PADDING/2))).dp)
                 drawLine(
-                    color = if (floor == floorPlan.floor) currentFloorColor
+                    color = if (floor == floorPlan.floor-1) currentFloorColor
                     else color,
                     start = Offset(PADDING.dp.toPx(), y.toPx()),
                     end = Offset((INDICATOR_WIDTH_DP-PADDING).dp.toPx(), y.toPx()),
-                    strokeWidth = if (floor == floorPlan.floor) 3.dp.toPx() else 1.dp.toPx(),
+                    strokeWidth = if (floor == floorPlan.floor-1) 3.dp.toPx() else 1.dp.toPx(),
                     cap = StrokeCap.Round
                 )
 

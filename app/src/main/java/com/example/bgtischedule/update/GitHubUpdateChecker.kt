@@ -103,12 +103,8 @@ class GitHubUpdateChecker(
     }
 
     private fun isConfigured(): Boolean {
-        val owner = BuildConfig.GITHUB_OWNER
-        val repo = BuildConfig.GITHUB_REPO
-        return owner.isNotBlank() &&
-            repo.isNotBlank() &&
-            owner != "maks2001916" &&
-            repo != "BGTIschedule"
+        return BuildConfig.GITHUB_OWNER.isNotBlank() &&
+                BuildConfig.GITHUB_REPO.isNotBlank()
     }
 
     private fun parseVersionCodeFromBody(body: String): Int? {

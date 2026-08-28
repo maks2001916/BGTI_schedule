@@ -107,7 +107,9 @@ private enum class AppSection(
 
 private val TAG = "AppRoot"
 
-@RequiresApi(Build.VERSION_CODES.O)
+
+
+@RequiresApi(Build.VERSION_CODES.P)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppRoot(
@@ -141,6 +143,7 @@ fun AppRoot(
     var pendingUpdate by remember { mutableStateOf<UpdateInfo?>(null) }
     var isCheckingUpdate by remember { mutableStateOf(false) }
 
+    @RequiresApi(Build.VERSION_CODES.P)
     suspend fun runUpdateCheck(showNoUpdateMessage: Boolean) {
         isCheckingUpdate = true
         try {
@@ -1095,18 +1098,20 @@ private fun BehaviorScreen(padding: PaddingValues, prefs: SharedPreferences) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Настройка поведения", style = MaterialTheme.typography.titleLarge)
+        /*
         SettingsSwitch("Автообновление расписания", autoRefresh) {
             autoRefresh = it
-            prefs.edit().putBoolean("behavior_auto_refresh", it).apply()
+            prefs.edit().putBoolean("behavior_auto_refresh", it)
         }
         SettingsSwitch("Уведомлять перед парой", notifyBeforeLesson) {
             notifyBeforeLesson = it
-            prefs.edit().putBoolean("behavior_notify", it).apply()
+            prefs.edit().putBoolean("behavior_notify", it)
         }
         SettingsSwitch("Открывать последнюю неделю", openLastWeekOnStart) {
             openLastWeekOnStart = it
-            prefs.edit().putBoolean("behavior_last_week", it).apply()
+            prefs.edit().putBoolean("behavior_last_week", it)
         }
+        */
     }
 }
 
@@ -1117,6 +1122,7 @@ private fun WidgetScreen(padding: PaddingValues, prefs: SharedPreferences) {
     var showClassroom by rememberSaveable { mutableStateOf(prefs.getBoolean("widget_classroom", true)) }
     var compactMode by rememberSaveable { mutableStateOf(prefs.getBoolean("widget_compact", false)) }
 
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1125,6 +1131,7 @@ private fun WidgetScreen(padding: PaddingValues, prefs: SharedPreferences) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Настройка виджета", style = MaterialTheme.typography.titleLarge)
+        /*
         SettingsSwitch("Показывать преподавателя", showTeacher) {
             showTeacher = it
             prefs.edit().putBoolean("widget_teacher", it).apply()
@@ -1137,9 +1144,11 @@ private fun WidgetScreen(padding: PaddingValues, prefs: SharedPreferences) {
             compactMode = it
             prefs.edit().putBoolean("widget_compact", it).apply()
         }
+        */
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.P)
 @Composable
 private fun SettingsScreen(
     padding: PaddingValues,
@@ -1190,7 +1199,7 @@ private fun SettingsScreen(
             checked = autoUpdateCheck
         ) {
             autoUpdateCheck = it
-            prefs.edit().putBoolean(UpdateManager.KEY_AUTO_UPDATE_CHECK, it).apply()
+            prefs.edit().putBoolean(UpdateManager.KEY_AUTO_UPDATE_CHECK, it)
         }
 
         Button(
@@ -1209,12 +1218,6 @@ private fun SettingsScreen(
                 Text(if (isCheckingUpdate) "Проверка…" else "Проверить обновления")
             }
         }
-
-        Text(
-            text = "Для публикации: создайте GitHub Release, прикрепите APK и укажите в описании versionCode: N",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
 
         Spacer(modifier = Modifier.height(8.dp))
         Button(

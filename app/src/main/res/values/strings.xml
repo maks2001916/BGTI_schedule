@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">BGTI schedule</string>
+    <string name="app_name">BGTI_schedule</string>
     <string name="app_widget_description">Расписание БГТИ</string>
 </resources>
