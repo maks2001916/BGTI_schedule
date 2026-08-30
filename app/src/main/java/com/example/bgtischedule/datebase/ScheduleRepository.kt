@@ -47,7 +47,7 @@ class ScheduleRepository(
         weekEnd: String,
         lessons: List<LessonEntity>
     ) {
-        requireAuth()  // ✅ Проверка перед записью
+        requireAuth()  // Проверка перед записью
         val group = authManager.getCurrentGroup()
             ?: throw IllegalStateException("Группа не определена")
 

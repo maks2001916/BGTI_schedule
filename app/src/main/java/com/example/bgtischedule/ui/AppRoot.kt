@@ -86,7 +86,10 @@ import com.example.bgtischedule.update.UpdateInfo
 import com.example.bgtischedule.update.UpdateManager
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import com.example.bgtischedule.model.StudentModel
+import com.example.bgtischedule.ui.components.ContactLinksSection
 import kotlinx.coroutines.delay
 import java.io.File
 import kotlinx.coroutines.launch
@@ -1202,6 +1205,7 @@ private fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(padding)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -1260,6 +1264,10 @@ private fun SettingsScreen(
         ) {
             Text("Выйти из всех аккаунтов")
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        ContactLinksSection(onMessage = onMessage)
     }
 }
 

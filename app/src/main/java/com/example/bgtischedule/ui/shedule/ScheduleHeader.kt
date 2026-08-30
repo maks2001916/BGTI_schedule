@@ -1,6 +1,7 @@
 package com.example.bgtischedule.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
@@ -32,7 +34,7 @@ import kotlinx.coroutines.delay
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
-private val TopBarSideSlotWidth = 70.dp
+private val TopBarSideSlotWidth = 40.dp
 
 /**
  * Верхняя панель экрана расписания:
@@ -66,7 +68,7 @@ fun SchedulePageHeader(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(bottom = 8.dp)
+            .padding(bottom = 4.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -100,7 +102,7 @@ fun SchedulePageHeader(
             )
 
             Box(
-                modifier = Modifier.width(TopBarSideSlotWidth),
+                modifier = Modifier.wrapContentWidth(),// .width(TopBarSideSlotWidth * 2),
                 contentAlignment = Alignment.CenterEnd
             ) {
                 Text(
