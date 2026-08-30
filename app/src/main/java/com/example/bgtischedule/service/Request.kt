@@ -20,10 +20,85 @@ class Request(
     private val api: UniversityApi
 ) {
 
-    /**
-     * Основная функция синхронизации расписания
-     */
+    /** Основная функция синхронизации расписания */
     suspend fun syncSchedule(
+        group: String,
+        login: String,
+        password: String,
+        weekOffset: Int
+    ): SyncResult = withContext(Dispatchers.IO) {
+        if (weekOffset > 0)
+            syncNextWeek(group, login, password)
+        else if (weekOffset < 0)
+            syncPreviousWeek(group, login, password)
+        else
+            syncThisWeek(group, login, password)
+    }
+
+    suspend fun loadCachedWeek(group: String, weekStart: LocalDate): SyncResult =
+        withContext(Dispatchers.IO) {
+            try {
+                val week = repository.getWeekForData(group, weekStart.toString())
+                    ?: return@withContext SyncResult.Error("Нет сохранённой недели")
+                val lessons = repository
+                    .getLessonsForWeek(group, week.weekStart, week.weekEnd)
+                    .map { it.toLesson() }
+                if (lessons.isEmpty()) return@withContext SyncResult.Error("Нет сохранённого расписания")
+
+                SyncResult.Cached(Schedule(
+                    StudentModel("", "", "", group),
+                    "${week.weekStart} — ${week.weekEnd}",
+                    lessons
+                ))
+            } catch (e: Exception) {
+                SyncResult.Error("Ошибка кэша: ${e.message}", e)
+            }
+        }
+
+    suspend fun refreshWeek(
+        group: String,
+        login: String,
+        password: String,
+        weekOffset: Int
+    ): SyncResult = withContext(Dispatchers.IO) {
+        try {
+            if (!api.login(login, password))
+                return@withContext SyncResult.Error("Не удалось авторизоваться")
+
+            // Текущая страница сайта
+            var html = api.getSchedulePage()
+                ?: return@withContext SyncResult.Error("Нет ответа от сервера")
+
+            // Переходим к запрошенной неделе через КНОПКИ сайта:
+            // дата из кнопки → ЗАГРУЗКА страницы по дате → (при offset>1) повторяем
+            if (weekOffset != 0) {
+                val title = if (weekOffset > 0) "Следующая неделя" else "Предыдущая неделя"
+                repeat(kotlin.math.abs(weekOffset)) {
+                    val date = parser.findWeekButtonDate(html, title)
+                        ?: return@withContext SyncResult.Error("Неделя недоступна на сайте")
+                    html = api.getSchedulePage(date)   // ✅ ВОТ ЭТОТ ШАГ БЫЛ ПРОПУЩЕН
+                        ?: return@withContext SyncResult.Error("Не удалось загрузить страницу недели")
+                }
+            }
+
+            val newSchedule = parser.parse(html)
+                ?: return@withContext SyncResult.Error("Ошибка парсинга")
+
+            val resolvedGroup = group.ifBlank { newSchedule.studentFIO.group }
+
+            // Сравниваем с БД; изменения сохраняем
+            val changes = detectChanges(resolvedGroup, newSchedule)
+            if (changes.isNotEmpty()) {
+                saveNewRecords(resolvedGroup, newSchedule, changes) // или saveScheduleWithChanges
+            }
+            SyncResult.Success(newSchedule, changes)
+        } catch (e: Exception) {
+            Log.e(TAG, "refreshWeek error", e)
+            SyncResult.Error(e.message ?: "Ошибка загрузки изменений")
+        }
+    }
+
+    suspend fun syncThisWeek(
         group: String,
         login: String,
         password: String
@@ -63,6 +138,124 @@ class Request(
                     SyncResult.Success(newSchedule)
                 }
             }
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected error", e)
+            loadFromCache(group)
+        }
+    }
+
+
+    suspend fun syncNextWeek(
+        group: String,
+        login: String,
+        password: String
+    ): SyncResult = withContext(Dispatchers.IO) {
+        try {
+            val isLoggedIn = api.login(login, password)
+            if (!isLoggedIn) {
+                Log.e(TAG, "Ошибка авторизации")
+                return@withContext loadFromCache(group)
+            }
+
+            val html = api.getSchedulePage()
+            if (html == null) {
+                Log.e(TAG, "Не удалось загрузить страницу расписания")
+                return@withContext loadFromCache(group)
+            }
+
+            val newSchedule = parser.parse(html)
+            if (newSchedule == null) {
+                Log.e(TAG, "Ошибка парсинга")
+                return@withContext loadFromCache(group)
+            }
+
+            val htmlFirst = parser.findWeekButtonDate(html, "Следующая неделя")
+            if (htmlFirst == null) {
+                Log.e(TAG, "Не удалось загрузить страницу расписания")
+                return@withContext loadFromCache(group)
+            }
+
+            val newScheduleHtmlFirst = parser.parse(htmlFirst)
+            if (newScheduleHtmlFirst == null) {
+                Log.e(TAG, "Ошибка парсинга")
+                return@withContext loadFromCache(group)
+            }
+
+            val resolvedGroup = group.ifBlank { newSchedule.studentFIO.group }
+            Log.i(TAG, "syncSchedule: group=$resolvedGroup, lessons=${newSchedule.lessons.size}")
+
+            val changesHtmlFirst = detectChanges(resolvedGroup, newScheduleHtmlFirst)
+
+            if (changesHtmlFirst.isNotEmpty()) {
+                saveNewRecords(resolvedGroup, newScheduleHtmlFirst, changesHtmlFirst)
+                SyncResult.Success(newScheduleHtmlFirst, changesHtmlFirst)
+            } else {
+                val cached = loadFromCache(resolvedGroup)
+                if (cached is SyncResult.Cached) {
+                    SyncResult.Success(cached.schedule, source = SyncResult.Source.CACHE)
+                } else {
+                    SyncResult.Success(newScheduleHtmlFirst)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected error", e)
+            loadFromCache(group)
+        }
+    }
+
+    suspend fun syncPreviousWeek(
+        group: String,
+        login: String,
+        password: String
+    ): SyncResult = withContext(Dispatchers.IO) {
+        try {
+            val isLoggedIn = api.login(login, password)
+            if (!isLoggedIn) {
+                Log.e(TAG, "Ошибка авторизации")
+                return@withContext loadFromCache(group)
+            }
+
+            val html = api.getSchedulePage()
+            if (html == null) {
+                Log.e(TAG, "Не удалось загрузить страницу расписания")
+                return@withContext loadFromCache(group)
+            }
+
+            val newSchedule = parser.parse(html)
+            if (newSchedule == null) {
+                Log.e(TAG, "Ошибка парсинга")
+                return@withContext loadFromCache(group)
+            }
+
+            val htmlFirst = parser.findWeekButtonDate(html, "Предыдущая неделя")
+            if (htmlFirst == null) {
+                Log.e(TAG, "Не удалось загрузить страницу расписания")
+                return@withContext loadFromCache(group)
+            }
+
+            val newScheduleHtmlFirst = parser.parse(htmlFirst)
+            if (newScheduleHtmlFirst == null) {
+                Log.e(TAG, "Ошибка парсинга")
+                return@withContext loadFromCache(group)
+            }
+
+            val resolvedGroup = group.ifBlank { newSchedule.studentFIO.group }
+            Log.i(TAG, "syncSchedule: group=$resolvedGroup, lessons=${newSchedule.lessons.size}")
+
+            val changesHtmlFirst = detectChanges(resolvedGroup, newScheduleHtmlFirst)
+
+            if (changesHtmlFirst.isNotEmpty()) {
+                saveNewRecords(resolvedGroup, newScheduleHtmlFirst, changesHtmlFirst)
+                SyncResult.Success(newScheduleHtmlFirst, changesHtmlFirst)
+            } else {
+                val cached = loadFromCache(resolvedGroup)
+                if (cached is SyncResult.Cached) {
+                    SyncResult.Success(cached.schedule, source = SyncResult.Source.CACHE)
+                } else {
+                    SyncResult.Success(newScheduleHtmlFirst)
+                }
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Unexpected error", e)
             loadFromCache(group)
@@ -74,7 +267,7 @@ class Request(
         loadFromCache(group)
     }
 
-    private suspend fun loadFromCache(group: String): SyncResult {
+    private suspend fun loadFromCache(group: String, ): SyncResult {
         return try {
             val today = LocalDate.now().toString()
             val week = repository.getWeekForData(group, today)

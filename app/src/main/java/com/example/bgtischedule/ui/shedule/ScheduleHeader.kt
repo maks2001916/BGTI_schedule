@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,7 +37,6 @@ private val TopBarSideSlotWidth = 70.dp
 /**
  * Верхняя панель экрана расписания:
  * слева — обновление, по центру — заголовок, справа — время;
- * под ней по центру — диапазон недели.
  */
 @Composable
 fun SchedulePageHeader(
@@ -43,7 +44,9 @@ fun SchedulePageHeader(
     weekRange: String,
     onRefresh: () -> Unit,
     currentTimeColor: Color = MaterialTheme.colorScheme.primary,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier.fillMaxWidth(),
+    onShowNextWeek: () -> Unit,
+    onShowPreviousWeek: () -> Unit
 ) {
     var currentTime by remember { mutableStateOf(LocalTime.now()) }
 
@@ -112,16 +115,24 @@ fun SchedulePageHeader(
             }
         }
 
-        if (weekRange.isNotBlank()) {
-            Text(
-                text = weekRange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp),
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            IconButton(onClick = onShowPreviousWeek ) { Icon(Icons.Default.ChevronLeft, "Предыдущая неделя") }
+
+            if (weekRange.isNotBlank()) {
+                Text(
+                    text = weekRange,
+                    modifier = Modifier.weight(1f)
+                        .padding(top = 4.dp),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = onShowNextWeek ) { Icon(Icons.Default.ChevronRight, "Следущая неделя") }
         }
     }
 }

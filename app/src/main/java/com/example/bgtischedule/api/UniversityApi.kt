@@ -7,7 +7,7 @@ import okhttp3.*
 import java.io.IOException
 
 private const val TAG = "UniversityApi"
-
+private val schedulePageUrl = "https://lk.bgti.ru/Default.aspx"
 class UniversityApi(
     private val loginPageUrl: String = "https://bgti.ru/Enter/Signin.aspx"
 ) {
@@ -59,7 +59,7 @@ class UniversityApi(
                     }
 
                     // Успешный вход подтверждаем доступностью кабинета
-                    getSchedulePageInternal() != null
+                    getSchedulePageInternal(schedulePageUrl) != null
                 }
             }
         } catch (e: IOException) {
@@ -68,14 +68,17 @@ class UniversityApi(
         }
     }
 
-    suspend fun getSchedulePage(): String? = withContext(Dispatchers.IO) {
-        getSchedulePageInternal()
+    suspend fun getSchedulePage(dateRu: String? = null): String? = withContext(Dispatchers.IO) {
+        val url = if (dateRu.isNullOrBlank()) schedulePageUrl
+        else "$schedulePageUrl?dt=$dateRu"
+
+        getSchedulePageInternal(url)
     }
 
-    private fun getSchedulePageInternal(): String? {
+    private fun getSchedulePageInternal(url: String = schedulePageUrl): String? {
         return try {
             val request = Request.Builder()
-                .url("https://lk.bgti.ru/Default.aspx")
+                .url(url)
                 .get()
                 .header("Referer", loginPageUrl)
                 .header("User-Agent", USER_AGENT)

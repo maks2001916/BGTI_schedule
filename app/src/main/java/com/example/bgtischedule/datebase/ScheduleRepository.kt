@@ -174,6 +174,15 @@ class ScheduleRepository(
         return scheduleDao.getWeekForDate(group, date)
     }
 
+    /** Получить неделю по диапазону дат */
+    suspend fun getWeekForRange(
+        group: String,
+        weekStart: String,
+        weekEnd: String
+    ): ScheduleEntity? {
+        return scheduleDao.getWeekForRange(group, weekStart, weekEnd)
+    }
+
 
     /** Получить дату последнего обновления недели */
     suspend fun getWeekLastUpdate(group: String, date: String): Long? {

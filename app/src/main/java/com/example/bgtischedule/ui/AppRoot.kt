@@ -86,11 +86,14 @@ import com.example.bgtischedule.update.UpdateInfo
 import com.example.bgtischedule.update.UpdateManager
 import android.content.Intent
 import android.net.Uri
+import com.example.bgtischedule.model.StudentModel
+import kotlinx.coroutines.delay
 import java.io.File
 import kotlinx.coroutines.launch
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -221,7 +224,7 @@ fun AppRoot(
     var activeAccount by remember { mutableStateOf(credentialsStore.getActiveAccount()) }
     var scheduleRefreshTrigger by remember { mutableIntStateOf(0) }
 
-    suspend fun fetchStudentInfo(): com.example.bgtischedule.model.StudentModel? {
+    suspend fun fetchStudentInfo(): StudentModel? {
         val html = api.getSchedulePage() ?: return null
         return scheduleParser.parse(html)?.studentFIO
     }
@@ -456,6 +459,8 @@ private fun HomeScreen(
     }
 
     val scope = rememberCoroutineScope()
+    var weekOffset by rememberSaveable { mutableStateOf(0) }  // 0 = текущая, 1 = следующая
+
 
     fun resolveGroup(): String? =
         authState.student?.group?.takeIf { it.isNotBlank() }
@@ -496,18 +501,29 @@ private fun HomeScreen(
         }
     }
 
-    suspend fun loadScheduleFromNetwork() {
+    suspend fun loadSchedule() {
+        if (isScheduleLoading) return
         val account = activeAccount ?: return
         val group = resolveGroup() ?: return
+        val weekStart = LocalDate.now()
+            .with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+            .plusWeeks(weekOffset.toLong())
 
-        isScheduleLoading = true
+        val hadData = scheduleUi != null
+        if (!hadData) isScheduleLoading = true
+
+        // Зпгрузка расписания из БД
+        val cached = request.loadCachedWeek(group, weekStart)
+        if (cached is SyncResult.Cached) {
+            applyScheduleResult(cached)
+            isScheduleLoading = false   // данные уже на экране
+        }
+
+        // проверка сервера
         try {
             Log.d(TAG, "loadSchedule: group=$group")
-            val result = request.syncSchedule(
-                group = group,
-                login = account.login,
-                password = account.password
-            )
+            //val result = request.syncSchedule(group, activeAccount.login, activeAccount.password, weekOffset)
+            val result = request.refreshWeek(group, account.login, account.password, weekOffset)
             Log.d(TAG, "loadSchedule: result=$result")
             when (result) {
                 is SyncResult.Success -> {
@@ -518,35 +534,35 @@ private fun HomeScreen(
                         onMessage("Обновлено: +$added новых, $modified изменено")
                     }
                 }
-                is SyncResult.Cached -> {
-                    applyScheduleResult(result)
-                    onMessage("Показано сохранённое расписание")
-                }
-                is SyncResult.Error -> {
-                    onMessage(result.message)
+                else -> {
+                    if (hadData) onMessage("Показано сохранённое расписание")
+                    else onMessage("Нет данных")
                 }
             }
         } catch (e: Exception) {
             Log.e(TAG, "loadSchedule: Exception", e)
-            onMessage("Ошибка: ${e.message}")
+            if (!hadData) onMessage("Ошибка: ${e.message}")
         } finally {
             isScheduleLoading = false
         }
     }
 
-    // Сразу показываем кэш, не дожидаясь авторизации
-    LaunchedEffect(activeAccount?.id) {
+// Единая точка запуска загрузки
+    LaunchedEffect(activeAccount?.id, authState.student?.group, lastKnownGroup, refreshTrigger, weekOffset) {
+        // 1. Восстановление группы из prefs при смене аккаунта
         lastKnownGroup = activeAccount?.let { prefs.getString(groupPrefsKey(it.id), null) }
-        lastKnownGroup?.let { loadCachedScheduleSilent(it) }
-    }
 
-    // Синхронизация с сервером (как при нажатии «Обновить») — не ждём флаг authState
-    LaunchedEffect(activeAccount?.id, authState.student?.group, lastKnownGroup, refreshTrigger) {
-        if (activeAccount != null && resolveGroup() != null) {
-            loadScheduleFromNetwork()
+        // 2. Мгновенно показать кэш (если есть)
+        val groupToLoad = resolveGroup()
+        if (groupToLoad != null) {
+            loadCachedScheduleSilent(groupToLoad)
+        }
+
+        // 3. Фоном проверить сервер
+        if (activeAccount != null && groupToLoad != null) {
+            loadSchedule()
         }
     }
-
     val hasSchedule = scheduleUi != null && weekRange.isNotEmpty()
     val isBusy = authState.isLoading || isScheduleLoading
 
@@ -584,7 +600,7 @@ private fun HomeScreen(
                 showAuthErrorCard = showAuthErrorCard,
                 authError = authState.error,
                 showEmptyPlaceholder = authState.isAuthenticated && !isBusy && !hasSchedule,
-                onRefresh = { scope.launch { loadScheduleFromNetwork() } },
+                onRefresh = { scope.launch { loadSchedule() } },
                 onRetryAuth = {
                     scope.launch {
                         onRetryAuth().onFailure {
@@ -592,7 +608,10 @@ private fun HomeScreen(
                         }
                     }
                 },
-                onRetryLoad = { scope.launch { loadScheduleFromNetwork() } }
+                onRetryLoad = { scope.launch { loadSchedule() } },
+                onShowPreviousWeek = { if (weekOffset > 0) weekOffset-- },
+                onShowNextWeek = { if (weekOffset < 4) weekOffset++ }
+
             )
         }
     }
@@ -620,13 +639,17 @@ private fun HomeScheduleLayout(
     showEmptyPlaceholder: Boolean,
     onRefresh: () -> Unit,
     onRetryAuth: () -> Unit,
-    onRetryLoad: () -> Unit
+    onRetryLoad: () -> Unit,
+    onShowPreviousWeek: () -> Unit,
+    onShowNextWeek: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         SchedulePageHeader(
             title = screenTitle,
             weekRange = weekRange,
-            onRefresh = onRefresh
+            onRefresh = onRefresh,
+            onShowNextWeek = onShowNextWeek,
+            onShowPreviousWeek = onShowPreviousWeek
         )
 
         if (showStatusBar && statusMessage.isNotEmpty()) {
@@ -805,7 +828,7 @@ private fun ScheduleLessonsList(
 
     LaunchedEffect(Unit) {
         while (true) {
-            kotlinx.coroutines.delay(60_000)
+            delay(60_000)
             currentTime = LocalTime.now()
         }
     }
@@ -843,14 +866,19 @@ private fun ScheduleCard(
     dayGroups: List<DayGroupUi>,
     currentTimeColor: Color = MaterialTheme.colorScheme.primary,
     onRefresh: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onShowNextWeek: () -> Unit,
+    onShowPreviousWeek: () -> Unit
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         SchedulePageHeader(
             title = "Расписание",
             weekRange = weekRange,
             onRefresh = onRefresh,
-            currentTimeColor = currentTimeColor
+            currentTimeColor = currentTimeColor,
+            modifier = modifier,
+            onShowNextWeek = onShowNextWeek,
+            onShowPreviousWeek = onShowPreviousWeek
         )
         ScheduleLessonsList(
             dayGroups = dayGroups,
@@ -906,7 +934,9 @@ private fun ScheduleCardPreview() {
                     )
                 )
             )
-        )
+        ),
+        onShowNextWeek = {},
+        onShowPreviousWeek = {}
     )
 }
 

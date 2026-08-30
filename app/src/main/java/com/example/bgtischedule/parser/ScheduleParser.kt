@@ -27,7 +27,7 @@ class ScheduleParser {
 
             // Извлекаем диапазон недели
             val weekRange = doc.select("td")
-                ?.firstOrNull {
+                .firstOrNull {
                     it.attr("align") == "center" &&
                             it.text().contains("Неделя с") &&
                             it.attr("style").contains("font-size:18px")
@@ -204,5 +204,24 @@ class ScheduleParser {
             if (text.contains(name, ignoreCase = true)) return num
         }
         return "01"
+    }
+
+    fun findWeekButtonDate(html: String?, titleContains: String): String? {
+        if (html.isNullOrBlank()) return null
+        return try {
+            val doc = Jsoup.parse(html)
+
+            // Ищем все ячейки-кнопки и фильтруем по title — надёжнее, чем CSS-селектор с кириллицей
+            val button = doc.select("td.hdweekbtn, td[onclick*=Default.aspx]")
+                .firstOrNull { it.attr("title").contains(titleContains) }
+                ?: return null
+
+            val onclick = button.attr("onclick")
+            Regex("""dt=(\d{2}\.\d{2}\.\d{4})""")
+                .find(onclick)?.groupValues?.get(1)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
 }

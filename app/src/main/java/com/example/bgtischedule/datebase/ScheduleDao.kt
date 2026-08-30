@@ -26,7 +26,21 @@ interface ScheduleDao {
         LIMIT 1
     """)
     suspend fun getWeekForDate(group: String, dateIso: String): ScheduleEntity?
-    
+
+    /** Получить неделю по указанному диапазону дат (начало и конец) */
+    @Query("""
+    SELECT * FROM schedule_week 
+    WHERE student_group = :group 
+    AND weekStart = :weekStart 
+    AND weekEnd = :weekEnd 
+    LIMIT 1
+""")
+    suspend fun getWeekForRange(
+        group: String,
+        weekStart: String,
+        weekEnd: String
+    ): ScheduleEntity?
+
     @Delete
     suspend fun deleteWeek(schedule: ScheduleEntity): Int
 
