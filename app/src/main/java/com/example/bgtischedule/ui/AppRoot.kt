@@ -563,7 +563,9 @@ private fun HomeScreen(
 
         // 3. Фоном проверить сервер
         if (activeAccount != null && groupToLoad != null) {
-            loadSchedule()
+            scope.launch {
+                loadSchedule()
+            }
         }
     }
     val hasSchedule = scheduleUi != null && weekRange.isNotEmpty()
