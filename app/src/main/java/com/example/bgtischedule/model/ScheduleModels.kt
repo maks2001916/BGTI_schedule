@@ -18,6 +18,8 @@ data class Lesson(
     val time: String,
     /** Аудитория */
     val classroom: String,
+    /** корпус */
+    val building: String,
     /** Название предмета */
     val subject: String,
     /** Тип занятия */
@@ -43,6 +45,7 @@ data class Lesson(
         lessonNumber = lessonNumber,
         time = time,
         classroom = classroom,
+        building = building,
         subject = subject,
         type = type,
         teacher = teacher,

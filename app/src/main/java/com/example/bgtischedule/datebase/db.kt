@@ -39,6 +39,8 @@ data class LessonEntity(
     val time: String,
     /** аудитория */
     val classroom: String,
+    /** корпус */
+    val building: String,
     /** предмет */
     val subject: String,
     /** тип */
@@ -69,6 +71,8 @@ data class LessonEntity(
         time = time,
         /** аудитория */
         classroom = classroom,
+        /** корпус */
+        building = building,
         /** предмет */
         subject = subject,
         /** тип */

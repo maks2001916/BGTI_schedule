@@ -1,11 +1,13 @@
 package com.example.bgtischedule.parser
 
+import android.util.Log
 import com.example.bgtischedule.model.Lesson
 import com.example.bgtischedule.model.Schedule
 import com.example.bgtischedule.model.StudentModel
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import kotlin.math.log
 
 class ScheduleParser {
 
@@ -80,6 +82,7 @@ class ScheduleParser {
         return try {
 
             var classroom = ""
+            var building = ""
             var subject = ""
             var type = ""
             var teacher = ""
@@ -96,7 +99,21 @@ class ScheduleParser {
                     //кабинет
                     styled.style.contains("font-family:'RobotoMed', Tahoma, Arial") &&
                             styled.style.contains("font-size:18px") -> {
-                        classroom = styled.text }
+                        val rawText = styled.text
+                        val fullBlockText = box.text()
+
+
+                        val buildingMatch = Regex("""\(([^)]+)\)""").find(fullBlockText)
+                        building = buildingMatch?.groupValues?.getOrNull(1)?.trim() ?: ""
+
+                        classroom = rawText
+                            .replace(Regex("""\([^)]*\)"""), "")     // убрать "(...)"
+                            .replace(Regex("""(?i)ауд\.\s*"""), "") // убрать "Ауд."
+                            .trim()
+
+                        Log.e("parser", "buildingMatch: $building")
+                        Log.e("parser", "classroom: $classroom")
+                        }
                     //предмет
                     styled.style.contains("margin-bottom:1px") -> {
                         subject = styled.text }
@@ -141,6 +158,7 @@ class ScheduleParser {
                 lessonNumber = getDate(lessonNumber).toByte(),
                 time = time,
                 classroom = classroom,
+                building = building,
                 subject = subject,
                 type = type,
                 teacher = teacher,

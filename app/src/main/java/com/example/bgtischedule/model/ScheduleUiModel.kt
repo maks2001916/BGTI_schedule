@@ -16,6 +16,7 @@ class ScheduleUiModel {
         val type: String,                        // Тип: "Лекция", "Практика"
         val teacher: String,                     // Преподаватель
         val classroom: String,                   // Аудитория
+        val building: String,                    // Корпус
         val topic: String,                       // Тема занятия
         val color: Color,                        // Уникальный цвет карточки
         val floorPlan: FloorPlanUi               // План этажа

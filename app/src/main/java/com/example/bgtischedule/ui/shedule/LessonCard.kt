@@ -83,20 +83,22 @@ fun LessonCard(
                            )
                        }
                        // корпус
-                       Surface(
-                           shape = RoundedCornerShape(16.dp),
-                           color = lesson.color.copy(alpha = 0.2f),
-                           modifier = Modifier.padding(start = 8.dp)
-                       ) {
-                           Text(
-                               text = lesson.floorPlan.building,
-                               style = MaterialTheme.typography.labelMedium.copy(
-                                   fontWeight = FontWeight.Medium
-                               ),
-                               color = lesson.color,
-                               modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                           )
-                       }
+                        if (lesson.floorPlan.building.isNotEmpty()) {
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = lesson.color.copy(alpha = 0.2f),
+                                modifier = Modifier.padding(start = 8.dp)
+                            ) {
+                                Text(
+                                    text = lesson.floorPlan.building,
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    color = lesson.color,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
                        // кабинет
                        Surface(
                            shape = RoundedCornerShape(16.dp),
@@ -194,6 +196,7 @@ fun LessonCardPreview() {
             "лекция",
             "Литвинова С.А.",
             "302",
+            "2",
             "тема",
             Color.Cyan,
             FloorPlanUi("1 корпус", 2, "16")

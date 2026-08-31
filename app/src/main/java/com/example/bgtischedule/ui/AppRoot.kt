@@ -910,6 +910,7 @@ private fun ScheduleCardPreview() {
                         type = "Лекция",
                         teacher = "Иванов И.И.",
                         classroom = "304",
+                        building = "2",
                         topic = "Пределы и непрерывность",
                         color = LessonColors.getColorForLesson("lesson_1"),
                         floorPlan = FloorPlanUi(
@@ -927,6 +928,7 @@ private fun ScheduleCardPreview() {
                         type = "Практика",
                         teacher = "Петров П.П.",
                         classroom = "215",
+                        building = "2",
                         topic = "Работа с коллекциями",
                         color = LessonColors.getColorForLesson("lesson_2"),
                         floorPlan = FloorPlanUi(
@@ -1260,7 +1262,8 @@ private fun SettingsScreen(
                     onLogout()
                     onMessage("Все аккаунты удалены")
                 }
-            }
+            },
+            modifier = Modifier.fillMaxWidth()
         ) {
             Text("Выйти из всех аккаунтов")
         }

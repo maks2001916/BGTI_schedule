@@ -33,7 +33,7 @@ fun MiniFloorPlan(
 
     val color = MaterialTheme.colorScheme.outlineVariant
     val fontSize = MaterialTheme.typography.labelSmall.fontSize
-
+    var drawable = true
 
     val roomsByFloor1 = mapOf(
         1 to listOf(
@@ -65,7 +65,7 @@ fun MiniFloorPlan(
             RoomData(3f, 1f, 1f,1.5f, "104"),
             RoomData(4f, 1f, 1f, 1.5f,  "105"),
             RoomData(5f, 1f, 1f, 1.5f, "106"),
-            RoomData(6f, 1f, 4f, 1.5f, "Читательный зал"),
+            RoomData(6f, 1f, 4f, 1.5f, "читальный зал библиотеки"),
             RoomData(10f, 1f, 1f, 1.5f, "107"),
             RoomData(11f, 1f, 1f, 1.5f, "108"),
             RoomData(13f, 1f, 1f, 1.5f, "санитарно-бытовое помещение"),
@@ -158,103 +158,136 @@ fun MiniFloorPlan(
     )
 
     // Вычлинение номера корпуса (1-й символ преобразуется в число)  //Добавить проверку?
-    val body = floorPlan.building.substring(0,1).toInt()
-
-    var rooms = roomsByFloor1[floorPlan.floor] ?: emptyList()
-
-    // Сопоставление корпуса с соответствующим списком
-    when (body) {
-        1 -> rooms = roomsByFloor1[floorPlan.floor] ?: emptyList()
-        2 -> rooms = roomsByFloor2[floorPlan.floor] ?: emptyList()
-        3 -> rooms = roomsByFloor3[floorPlan.floor] ?: emptyList()
+    var body = 0
+    if (!floorPlan.building.isNullOrEmpty()) {
+        body = floorPlan.building.substring(0, 1).toIntOrNull() ?: -1
+    }
+// Собираем ВСЕ комнаты выбранного корпуса (со всех этажей)
+    val allRoomsInBuilding: List<RoomData> = when (body) {
+        1 -> roomsByFloor1.values.flatten()
+        2 -> roomsByFloor2.values.flatten()
+        3 -> roomsByFloor3.values.flatten()
+        else -> emptyList()
     }
 
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxWidth()
-    ) {
-        // Максимальное количество ячеек в высоту
-        val maxY = rooms.maxOfOrNull { it.y + it.sizeY - 1 } ?: 2
-        // Ширина_ячейки_Dp =  ширина   -  ширина_индикатора     + (отступ        * (3 + количество_позиций)) / количество_позиций
-        val baseRoomWidthDp = (maxWidth - (INDICATOR_WIDTH_DP.dp + (PADDING.dp * (3 + MAX_POSITION))))     / MAX_POSITION
-        // Высота Ячейки в Px
-        val baseRoomHeightPx = baseRoomWidthDp
-        // Высота холста = аысота ячейки    * количество_позиций + отсступ     * (количчество позиций) + 1
-        val canvasHeight = baseRoomHeightPx * maxY.toFloat()     + (PADDING.dp * (maxY.toFloat()       + 1)) + PADDING.dp*2
+// ✅ ПРОВЕРКА: есть ли искомая аудитория в корпусе?
+    val roomExists = allRoomsInBuilding.any { it.number == floorPlan.roomNumber }
 
-        Canvas(
+// Если корпус не распознан ИЛИ аудитория не найдена — не рисуем карту
+    val shouldDraw = body in 1..3 && roomExists
+
+    if (shouldDraw) {
+        // Получаем список комнат ТОЛЬКО для текущего этажа
+        val rooms = when (body) {
+            1 -> roomsByFloor1[floorPlan.floor] ?: emptyList()
+            2 -> roomsByFloor2[floorPlan.floor] ?: emptyList()
+            3 -> roomsByFloor3[floorPlan.floor] ?: emptyList()
+            else -> emptyList()
+        }
+
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(canvasHeight)
-                .padding(PADDING.dp)
         ) {
-            //drawLine(color, Offset(0.dp.toPx(), 0.dp.toPx()), Offset(maxWidth.toPx(), 0.dp.toPx()), 2f)
-            //drawLine(color, Offset(0.dp.toPx(), 0.dp.toPx()), Offset(0.dp.toPx(), canvasHeight.toPx()),2f)
-            val paddingPx = PADDING.dp.toPx()
-            val indicatorWidthPx = INDICATOR_WIDTH_DP.dp.toPx()
-            val baseRoomWidthPx = baseRoomWidthDp.toPx()
-            val baseRoomHeightPx = baseRoomWidthPx
+            // Максимальное количество ячеек в высоту
+            val maxY = rooms.maxOfOrNull { it.y + it.sizeY - 1 } ?: 2
+            // Ширина_ячейки_Dp =  ширина   -  ширина_индикатора     + (отступ        * (3 + количество_позиций)) / количество_позиций
+            val baseRoomWidthDp =
+                (maxWidth - (INDICATOR_WIDTH_DP.dp + (PADDING.dp * (3 + MAX_POSITION)))) / MAX_POSITION
+            // Высота Ячейки в Px
+            val baseRoomHeightPx = baseRoomWidthDp
+            // Высота холста = аысота ячейки    * количество_позиций + отсступ     * (количчество позиций) + 1
+            val canvasHeight =
+                baseRoomHeightPx * maxY.toFloat() + (PADDING.dp * (maxY.toFloat() + 1)) + PADDING.dp * 2
 
-            rooms.forEach { room ->
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(canvasHeight)
+                    .padding(PADDING.dp)
+            ) {
+                //drawLine(color, Offset(0.dp.toPx(), 0.dp.toPx()), Offset(maxWidth.toPx(), 0.dp.toPx()), 2f)
+                //drawLine(color, Offset(0.dp.toPx(), 0.dp.toPx()), Offset(0.dp.toPx(), canvasHeight.toPx()),2f)
+                val paddingPx = PADDING.dp.toPx()
+                val indicatorWidthPx = INDICATOR_WIDTH_DP.dp.toPx()
+                val baseRoomWidthPx = baseRoomWidthDp.toPx()
+                val baseRoomHeightPx = baseRoomWidthPx
 
-                // Ширина ячейки с отступом
-                val slotWidthPx = baseRoomWidthPx + paddingPx
-                // Длина ячейки с отступом
-                val slotHeightPx = baseRoomHeightPx + paddingPx
-                // Ширина_кабинета = (ширина_ячейки * количество_ячеек) - отступ
-                val roomWidthPx = (slotWidthPx * room.sizeX) - paddingPx
-                // Длина_кабинета = (длина_ячейки * количество_ячеек) - отступ
-                val roomHeightPx = (slotHeightPx * room.sizeY) - paddingPx
-                // Позиция кабинета = ширина_индикатора + (координаты_широты_кабинета) * количество_ячеек - сдвиг
-                val x               = indicatorWidthPx  + ((room.x - 1)                * slotWidthPx)
-                //val x = indicatorWidthPx + paddingPx + ((room.x - 1) * slotWidthPx - slotWidthPx)
-                val y = paddingPx + (slotHeightPx * (room.y - 1))
+                rooms.forEach { room ->
 
-                // Целевой кабинет
-                val isTarget = room.number == floorPlan.roomNumber
+                    // Ширина ячейки с отступом
+                    val slotWidthPx = baseRoomWidthPx + paddingPx
+                    // Длина ячейки с отступом
+                    val slotHeightPx = baseRoomHeightPx + paddingPx
+                    // Ширина_кабинета = (ширина_ячейки * количество_ячеек) - отступ
+                    val roomWidthPx = (slotWidthPx * room.sizeX) - paddingPx
+                    // Длина_кабинета = (длина_ячейки * количество_ячеек) - отступ
+                    val roomHeightPx = (slotHeightPx * room.sizeY) - paddingPx
+                    // Позиция кабинета = ширина_индикатора + (координаты_широты_кабинета) * количество_ячеек - сдвиг
+                    val x = indicatorWidthPx + ((room.x - 1) * slotWidthPx)
+                    //val x = indicatorWidthPx + paddingPx + ((room.x - 1) * slotWidthPx - slotWidthPx)
+                    val y = paddingPx + (slotHeightPx * (room.y - 1))
 
-                drawRoundRect(
-                    color = if (isTarget) currentFloorColor else color,
-                    topLeft = Offset(x, y),
-                    size = Size(
-                        roomWidthPx,
-                        roomHeightPx),
-                    cornerRadius = CornerRadius(4.dp.toPx()),
-                    style = if (isTarget) Stroke(2.dp.toPx()) else Stroke(1.dp.toPx())
-                )
+                    // Целевой кабинет
+                    val isTarget = room.number == floorPlan.roomNumber
 
-                // Номер комнаты
-                if (isTarget) {
-                    drawText(
-                        textMeasurer = textMeasurer,
-                        text = floorPlan.roomNumber,
-                        style = TextStyle(
-                            color = currentFloorColor,
-                            fontSize = fontSize
+                    drawRoundRect(
+                        color = if (isTarget) currentFloorColor else color,
+                        topLeft = Offset(x, y),
+                        size = Size(
+                            roomWidthPx,
+                            roomHeightPx
                         ),
-                        topLeft = Offset(
-                            (x + roomWidthPx / 3),
-                            (y + roomHeightPx / 3)
-                        )
+                        cornerRadius = CornerRadius(4.dp.toPx()),
+                        style = if (isTarget) Stroke(2.dp.toPx()) else Stroke(1.dp.toPx())
                     )
+
+                    // Номер комнаты
+                    if (isTarget) {
+                        val textLayoutResult = textMeasurer.measure(
+                            text = floorPlan.roomNumber,
+                            style = TextStyle(color = currentFloorColor, fontSize = fontSize)
+                        )
+                        val textW = textLayoutResult.size.width.toFloat()
+                        val textH = textLayoutResult.size.height.toFloat()
+
+                        // Небольшой внутренний отступ, чтобы текст не прилипал к границам
+                        val hPadding = 4.dp.toPx()
+                        val vPadding = 4.dp.toPx()
+
+                        val fitsWidth  = textW <= (roomWidthPx  - hPadding * 2)
+                        val fitsHeight = textH <= (roomHeightPx - vPadding * 2)
+
+                        if (fitsWidth && fitsHeight) {
+                            // ✅ Центрирование: (размер контейнера - размер текста) / 2
+                            val textX = x + (roomWidthPx - textW) / 2f
+                            val textY = y + (roomHeightPx - textH) / 2f
+
+                            drawText(
+                                textLayoutResult = textLayoutResult,
+                                topLeft = Offset(textX, textY)
+                            )
+                        }
+                    }
                 }
-            }
 
 
-            // Индикатор этажа
+                // Индикатор этажа
 
-            for (floor in 0..if (body == 2) 3 else 1) {
+                for (floor in 0..if (body == 2) 3 else 1) {
 
-                val y = (canvasHeight - (PADDING.dp*3) - (floor  * ((baseRoomHeightPx/2)-(PADDING/2))).dp)
-                drawLine(
-                    color = if (floor == floorPlan.floor-1) currentFloorColor
-                    else color,
-                    start = Offset(PADDING.dp.toPx(), y.toPx()),
-                    end = Offset((INDICATOR_WIDTH_DP-PADDING).dp.toPx(), y.toPx()),
-                    strokeWidth = if (floor == floorPlan.floor-1) 3.dp.toPx() else 1.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
+                    val y =
+                        (canvasHeight - (PADDING.dp * 3) - (floor * ((baseRoomHeightPx / 2) - (PADDING / 2))).dp)
+                    drawLine(
+                        color = if (floor == floorPlan.floor - 1) currentFloorColor
+                        else color,
+                        start = Offset(PADDING.dp.toPx(), y.toPx()),
+                        end = Offset((INDICATOR_WIDTH_DP - PADDING).dp.toPx(), y.toPx()),
+                        strokeWidth = if (floor == floorPlan.floor - 1) 3.dp.toPx() else 1.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
 
+                }
             }
         }
     }

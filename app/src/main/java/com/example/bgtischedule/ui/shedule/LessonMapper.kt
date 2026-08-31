@@ -15,13 +15,15 @@ object LessonMapper {
             type = lesson.type,
             teacher = lesson.teacher,
             classroom = lesson.classroom,
+            building = lesson.building,
             topic = lesson.topic,
             color = LessonColors.getColorForLesson(lesson.subject),
             floorPlan = FloorPlanUi(
-                building = "2 корпус",
+                building = lesson.building,
                 floor = extractFloor(lesson.classroom),
                 roomNumber = lesson.classroom
-            )
+            ),
+
         )
     }
 
