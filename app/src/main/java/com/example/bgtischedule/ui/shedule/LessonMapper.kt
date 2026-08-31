@@ -1,5 +1,6 @@
 package com.example.bgtischedule.ui.mapper
 
+import com.example.bgtischedule.model.ClassroomDirectory
 import com.example.bgtischedule.model.Lesson
 import com.example.bgtischedule.model.ScheduleUiModel.*
 
@@ -19,7 +20,11 @@ object LessonMapper {
             topic = lesson.topic,
             color = LessonColors.getColorForLesson(lesson.subject),
             floorPlan = FloorPlanUi(
-                building = lesson.building,
+                building =
+                    if (!lesson.building.isNullOrEmpty())
+                        lesson.building
+                    else
+                        ClassroomDirectory.getBuildingByNumber(lesson.classroom),
                 floor = extractFloor(lesson.classroom),
                 roomNumber = lesson.classroom
             ),
