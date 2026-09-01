@@ -23,6 +23,8 @@ class SecureCredentialsStore(context: Context) {
 
     private val json = Json { encodeDefaults = true }
 
+    private var _activeAccountId: String? = prefs.getString(KEY_ACTIVE_ID, null)
+
     // === Ключи ===
     companion object {
         private const val FILE_NAME = "secure_credentials"
@@ -86,11 +88,13 @@ class SecureCredentialsStore(context: Context) {
 
     /** Переключиться на другой аккаунт */
     fun switchAccount(accountId: String) {
+        _activeAccountId = accountId  // Мгновенное обновление кэша
         prefs.edit().putString(KEY_ACTIVE_ID, accountId).apply()
     }
 
     /** Очистить всё */
     fun clearAll() {
+        _activeAccountId = null
         prefs.edit()
             .remove(KEY_ACCOUNTS)
             .remove(KEY_ACTIVE_ID)

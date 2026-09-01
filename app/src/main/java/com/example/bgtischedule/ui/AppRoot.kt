@@ -3,7 +3,6 @@ package com.example.bgtischedule.ui
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,7 +48,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -68,7 +66,6 @@ import com.example.bgtischedule.api.UniversityApi
 import com.example.bgtischedule.data.Credentials
 import com.example.bgtischedule.data.SecureCredentialsStore
 import com.example.bgtischedule.data.auth.AuthStateManager
-import com.example.bgtischedule.data.model.SyncResult
 import com.example.bgtischedule.datebase.AppDatabase
 import com.example.bgtischedule.datebase.ScheduleRepository
 import com.example.bgtischedule.service.Request
@@ -78,7 +75,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.example.bgtischedule.ui.components.SchedulePageHeader
 import com.example.bgtischedule.model.ScheduleUiModel.*
 import com.example.bgtischedule.parser.ScheduleParser
-import com.example.bgtischedule.ui.mapper.LessonMapper
 import com.example.bgtischedule.ui.update.UpdateAvailableDialog
 import com.example.bgtischedule.update.DownloadState
 import com.example.bgtischedule.update.UpdateCheckResult
@@ -88,15 +84,18 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import com.example.bgtischedule.model.StudentModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.bgtischedule.ui.components.ContactLinksSection
+import com.example.bgtischedule.ui.viewmodel.MainViewModel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import java.io.File
 import kotlinx.coroutines.launch
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.time.Instant
-import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -118,68 +117,51 @@ private val TAG = "AppRoot"
 @RequiresApi(Build.VERSION_CODES.P)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppRoot(
-    scheduleRepository: ScheduleRepository? = null,
-    parser: ScheduleParser? = null
-) {
-
+fun AppRoot() {
     val context = LocalContext.current
-    val credentialsStore = remember { SecureCredentialsStore(context) }
-    val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    val credentialsStore = remember { SecureCredentialsStore(context) }
     val authManager = remember { AuthStateManager(credentialsStore) }
     val authState by authManager.authState.collectAsState()
     val api = remember { UniversityApi() }
-    val scheduleParser = remember { parser ?: ScheduleParser() }
+    val scheduleParser = remember { ScheduleParser() }
 
     val repository = remember {
-        scheduleRepository ?: run {
-            val db = Room.databaseBuilder(
-                context,
-                AppDatabase::class.java,
-                "schedule.db"
-            ).build()
-            ScheduleRepository(db.getScheduleDao(), authManager)
-        }
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, "schedule.db").build()
+        ScheduleRepository(db.getScheduleDao(), authManager)
     }
 
     val request = remember { Request(repository, scheduleParser, api) }
     val updateManager = remember { UpdateManager() }
     val downloadState by updateManager.downloadState.collectAsState()
+
+
+    val viewModel: MainViewModel = viewModel(
+        factory = MainViewModelFactory(authManager, repository, api, scheduleParser, request)
+    )
+    val scheduleState by viewModel.scheduleState.collectAsState()
+
+    var section by rememberSaveable { mutableStateOf(AppSection.Home) }
+    var activeAccount by remember { mutableStateOf(credentialsStore.getActiveAccount()) }
     var pendingUpdate by remember { mutableStateOf<UpdateInfo?>(null) }
     var isCheckingUpdate by remember { mutableStateOf(false) }
-
-    @RequiresApi(Build.VERSION_CODES.P)
-    suspend fun runUpdateCheck(showNoUpdateMessage: Boolean) {
-        isCheckingUpdate = true
-        try {
-            when (val result = updateManager.checkForUpdate(context)) {
-                is UpdateCheckResult.Available -> pendingUpdate = result.info
-                is UpdateCheckResult.UpToDate -> {
-                    if (showNoUpdateMessage) {
-                        scope.launch {
-                            snackbarHostState.showSnackbar("Установлена последняя версия")
-                        }
-                    }
-                }
-                is UpdateCheckResult.Error -> {
-                    if (showNoUpdateMessage) {
-                        scope.launch { snackbarHostState.showSnackbar(result.message) }
-                    } else {
-                        Log.w(TAG, "Auto update check: ${result.message}")
-                    }
-                }
-            }
-        } finally {
-            isCheckingUpdate = false
-        }
-    }
 
     // Автопроверка обновлений с GitHub (раз в 24 ч)
     LaunchedEffect(Unit) {
         if (UpdateManager.shouldRunAutoCheck(context)) {
-            runUpdateCheck(showNoUpdateMessage = false)
+            runUpdateCheck(context, updateManager, scope, snackbarHostState,
+                onAvailable = { pendingUpdate = it }, showNoUpdateMessage = false)
             UpdateManager.markAutoCheckDone(context)
+        }
+    }
+
+    // При смене активного аккаунта — уведомить ViewModel
+    LaunchedEffect(activeAccount?.id, authState.student?.group) {
+        if (activeAccount != null) {
+            val group = authState.student?.group?.takeIf { it.isNotBlank() }
+            viewModel.onAccountChanged(activeAccount!!.login, activeAccount!!.password, group)
         }
     }
 
@@ -222,44 +204,6 @@ fun AppRoot(
             }
         )
     }
-
-    var section by rememberSaveable { mutableStateOf(AppSection.Home) }
-    var activeAccount by remember { mutableStateOf(credentialsStore.getActiveAccount()) }
-    var scheduleRefreshTrigger by remember { mutableIntStateOf(0) }
-
-    suspend fun fetchStudentInfo(): StudentModel? {
-        val html = api.getSchedulePage() ?: return null
-        return scheduleParser.parse(html)?.studentFIO
-    }
-
-    suspend fun authenticateActiveAccount(): Result<Unit> {
-        val creds = credentialsStore.getActiveAccount()
-            ?: run {
-                authManager.setAuthError("Нет активного аккаунта")
-                return Result.failure(Exception("Нет активного аккаунта"))
-            }
-        authManager.setAuthLoading()
-        if (!api.login(creds.login, creds.password)) {
-            authManager.setAuthError("Не удалось авторизоваться на сервере. Проверьте логин и пароль.")
-            return Result.failure(Exception("Не удалось авторизоваться на сервере"))
-        }
-        return authManager.authenticateActiveAccount { fetchStudentInfo() }
-    }
-
-    // Восстановление сессии при старте
-    LaunchedEffect(Unit) {
-        if (authManager.checkSavedCredentials()) {
-            authenticateActiveAccount().onFailure {
-                Log.w(TAG, "Session restore failed: ${it.message}")
-            }
-        }
-        activeAccount = credentialsStore.getActiveAccount()
-    }
-
-    LaunchedEffect(section) {
-        activeAccount = credentialsStore.getActiveAccount()
-    }
-
     Scaffold(
         topBar = {
             if (section != AppSection.Home) {
@@ -345,44 +289,30 @@ fun AppRoot(
         when (section) {
             AppSection.Home -> HomeScreen(
                 padding = padding,
-                context = context,
+                viewModel = viewModel,
                 activeAccount = activeAccount,
                 authState = authState,
-                request = request,
-                refreshTrigger = scheduleRefreshTrigger,
-                onRetryAuth = { authenticateActiveAccount() },
+                scheduleState = scheduleState,
                 onMessage = { msg ->
                     scope.launch { snackbarHostState.showSnackbar(msg) }
                 })
             AppSection.Account -> AccountScreen(
                 padding = padding,
+                activeAccount = activeAccount,
                 credentialsStore = credentialsStore,
                 authManager = authManager,
                 authState = authState,
                 onAuthenticate = { login, password ->
-                    authManager.setAuthLoading()
-                    if (!api.login(login, password)) {
-                        authManager.setAuthError("Не удалось авторизоваться на сервере. Проверьте логин и пароль.")
-                        Result.failure(Exception("Не удалось авторизоваться на сервере"))
-                    } else {
-                        authManager.loginNewAccount(login, password) { fetchStudentInfo() }
-                    }
+                    viewModel.onLogin(login, password); Result.success(Unit)
                 },
                 onSwitchAccount = { accountId ->
                     credentialsStore.switchAccount(accountId)
                     activeAccount = credentialsStore.getActiveAccount()
-                    authenticateActiveAccount()
+                    viewModel.onSwitchAccount()
+                    Result.success(Unit)
                 },
                 onAccountChanged = {
                     activeAccount = credentialsStore.getActiveAccount()
-                    scope.launch {
-                        if (activeAccount != null) {
-                            authenticateActiveAccount()
-                        } else {
-                            authManager.clearSession()
-                        }
-                        scheduleRefreshTrigger++
-                    }
                 },
                 onMessage = { message ->
                     scope.launch { snackbarHostState.showSnackbar(message) }
@@ -397,13 +327,17 @@ fun AppRoot(
                 updateManager = updateManager,
                 isCheckingUpdate = isCheckingUpdate,
                 onCheckUpdate = {
-                    scope.launch { runUpdateCheck(showNoUpdateMessage = true) }
+                    scope.launch {
+                        isCheckingUpdate = true
+                        runUpdateCheck(context, updateManager, scope, snackbarHostState,
+                            onAvailable = { pendingUpdate = it }, showNoUpdateMessage = true)
+                        isCheckingUpdate = false
+                    }
                 },
                 onLogout = {
                     scope.launch {
-                        authManager.logout()
+                        viewModel.onLogout()
                         activeAccount = null
-                        scheduleRefreshTrigger++
                     }
                 },
                 onMessage = { message ->
@@ -412,6 +346,42 @@ fun AppRoot(
             )
         }
     }
+}
+
+/** Вспомогательная функция проверки обновлений (вынесена из Composable) */
+@RequiresApi(Build.VERSION_CODES.P)
+private suspend fun runUpdateCheck(
+    context: Context,
+    updateManager: UpdateManager,
+    scope: CoroutineScope,
+    snackbarHostState: SnackbarHostState,
+    onAvailable: (UpdateInfo) -> Unit,
+    showNoUpdateMessage: Boolean
+) {
+    when (val result = updateManager.checkForUpdate(context)) {
+        is UpdateCheckResult.Available -> onAvailable(result.info)
+        is UpdateCheckResult.UpToDate -> {
+            if (showNoUpdateMessage) {
+                scope.launch { snackbarHostState.showSnackbar("У вас последняя версия") }
+            }
+        }
+        is UpdateCheckResult.Error -> {
+            if (showNoUpdateMessage) {
+                scope.launch { snackbarHostState.showSnackbar(result.message) }
+            }
+        }
+    }
+}
+
+class MainViewModelFactory(
+    private val authManager: AuthStateManager,
+    private val repository: ScheduleRepository,
+    private val api: UniversityApi,
+    private val parser: ScheduleParser,
+    private val request: Request
+) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T =
+        MainViewModel(authManager, repository, api, parser, request) as T
 }
 
 private fun loadLocalHtmlFile(context: Context, fileName: String): String? {
@@ -439,149 +409,15 @@ private fun loadLocalHtmlFile(context: Context, fileName: String): String? {
 @Composable
 private fun HomeScreen(
     padding: PaddingValues,
-    context: Context,
+    viewModel: MainViewModel,
     activeAccount: Credentials?,
     authState: AuthStateManager.AuthState,
-    request: Request,
-    refreshTrigger: Int,
-    onRetryAuth: suspend () -> Result<Unit>,
+    scheduleState: MainViewModel.ScheduleState,
     onMessage: (String) -> Unit
 ) {
-    val prefs = remember {
-        context.getSharedPreferences("schedule_prefs", Context.MODE_PRIVATE)
-    }
-
-    var isScheduleLoading by remember { mutableStateOf(false) }
-    var scheduleUi by remember { mutableStateOf<List<DayGroupUi>?>(null) }
-    var weekRange by remember { mutableStateOf("") }
-    var lastSyncTime by remember { mutableStateOf<Long?>(null) }
-    var lastKnownGroup by remember(activeAccount?.id) {
-        mutableStateOf(
-            activeAccount?.let { prefs.getString(groupPrefsKey(it.id), null) }
-        )
-    }
 
     val scope = rememberCoroutineScope()
-    var weekOffset by rememberSaveable { mutableStateOf(0) }  // 0 = текущая, 1 = следующая
-
-
-    fun resolveGroup(): String? =
-        authState.student?.group?.takeIf { it.isNotBlank() }
-            ?: lastKnownGroup?.takeIf { it.isNotBlank() }
-
-    @RequiresApi(Build.VERSION_CODES.GINGERBREAD)
-    fun applyScheduleResult(result: SyncResult) {
-        when (result) {
-            is SyncResult.Success -> {
-                scheduleUi = LessonMapper.toDayGroups(result.schedule.lessons)
-                weekRange = result.schedule.weekRange
-                lastSyncTime = System.currentTimeMillis()
-                val group = result.schedule.studentFIO.group.ifBlank { resolveGroup().orEmpty() }
-                if (group.isNotBlank() && activeAccount != null) {
-                    lastKnownGroup = group
-                    prefs.edit().putString(groupPrefsKey(activeAccount.id), group).apply()
-                }
-            }
-            is SyncResult.Cached -> {
-                scheduleUi = LessonMapper.toDayGroups(result.schedule.lessons)
-                weekRange = result.schedule.weekRange
-                val group = result.schedule.studentFIO.group.ifBlank { resolveGroup().orEmpty() }
-                if (group.isNotBlank() && activeAccount != null) {
-                    lastKnownGroup = group
-                    prefs.edit().putString(groupPrefsKey(activeAccount.id), group).apply()
-                }
-            }
-            is SyncResult.Error -> {
-                Log.e(TAG, "schedule: ${result.message}")
-            }
-        }
-    }
-
-    suspend fun loadCachedScheduleSilent(group: String) {
-        when (val result = request.loadCachedSchedule(group)) {
-            is SyncResult.Cached, is SyncResult.Success -> applyScheduleResult(result)
-            else -> Unit
-        }
-    }
-
-    suspend fun loadSchedule() {
-        if (isScheduleLoading) return
-        val account = activeAccount ?: return
-        val group = resolveGroup() ?: return
-        val weekStart = LocalDate.now()
-            .with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
-            .plusWeeks(weekOffset.toLong())
-
-        val hadData = scheduleUi != null
-        if (!hadData) isScheduleLoading = true
-
-        // Зпгрузка расписания из БД
-        val cached = request.loadCachedWeek(group, weekStart)
-        if (cached is SyncResult.Cached) {
-            applyScheduleResult(cached)
-            isScheduleLoading = false   // данные уже на экране
-        }
-
-        // проверка сервера
-        try {
-            Log.d(TAG, "loadSchedule: group=$group")
-            //val result = request.syncSchedule(group, activeAccount.login, activeAccount.password, weekOffset)
-            val result = request.refreshWeek(group, account.login, account.password, weekOffset)
-            Log.d(TAG, "loadSchedule: result=$result")
-            when (result) {
-                is SyncResult.Success -> {
-                    applyScheduleResult(result)
-                    if (result.changes.isNotEmpty()) {
-                        val added = result.changes.count { it.type == SyncResult.ChangeType.ADDED }
-                        val modified = result.changes.count { it.type == SyncResult.ChangeType.MODIFIED }
-                        onMessage("Обновлено: +$added новых, $modified изменено")
-                    }
-                }
-                else -> {
-                    if (hadData) onMessage("Показано сохранённое расписание")
-                    else onMessage("Нет данных")
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "loadSchedule: Exception", e)
-            if (!hadData) onMessage("Ошибка: ${e.message}")
-        } finally {
-            isScheduleLoading = false
-        }
-    }
-
-// Единая точка запуска загрузки
-    LaunchedEffect(activeAccount?.id, authState.student?.group, lastKnownGroup, refreshTrigger, weekOffset) {
-        // 1. Восстановление группы из prefs при смене аккаунта
-        lastKnownGroup = activeAccount?.let { prefs.getString(groupPrefsKey(it.id), null) }
-
-        // 2. Мгновенно показать кэш (если есть)
-        val groupToLoad = resolveGroup()
-        if (groupToLoad != null) {
-            loadCachedScheduleSilent(groupToLoad)
-        }
-
-        // 3. Фоном проверить сервер
-        if (activeAccount != null && groupToLoad != null) {
-            scope.launch {
-                loadSchedule()
-            }
-        }
-    }
-    val hasSchedule = scheduleUi != null && weekRange.isNotEmpty()
-    val isBusy = authState.isLoading || isScheduleLoading
-
-    val statusMessage = when {
-        authState.isLoading -> "Авторизация..."
-        isScheduleLoading -> "Обновление расписания..."
-        !authState.isAuthenticated && authState.error != null && hasSchedule ->
-            authState.error!!
-        else -> ""
-    }
-
-    val showStatusBar = isBusy || (statusMessage.isNotEmpty() && hasSchedule)
-    val showStatusProgress = isBusy
-    val showAuthErrorCard = !authState.isAuthenticated && !isBusy && !hasSchedule && activeAccount != null
+    val hasSchedule = scheduleState.dayGroups != null && scheduleState.weekRange.isNotEmpty()
 
     Column(
         modifier = Modifier
@@ -594,35 +430,47 @@ private fun HomeScreen(
             activeAccount == null -> AuthRequiredCard()
             else -> HomeScheduleLayout(
                 screenTitle = AppSection.Home.title,
-                showStatusBar = showStatusBar,
-                statusMessage = statusMessage,
-                showProgress = showStatusProgress,
-                isStatusError = !isBusy && !authState.isAuthenticated && authState.error != null,
+                showStatusBar = scheduleState.isLoading,
+                statusMessage = scheduleState.errorMessage ?: if (scheduleState.isLoading) "Обновление" else "",
+                showProgress = scheduleState.isLoading,
+                isStatusError = scheduleState.errorMessage != null,
                 hasSchedule = hasSchedule,
-                weekRange = weekRange,
-                scheduleUi = scheduleUi,
-                lastSyncTime = lastSyncTime,
-                showAuthErrorCard = showAuthErrorCard,
+                weekRange = scheduleState.weekRange,
+                scheduleUi = scheduleState.dayGroups,
+                lastSyncTime = scheduleState.lastSyncTime,
+                showAuthErrorCard = !authState.isAuthenticated && !scheduleState.isLoading && hasSchedule && activeAccount != null,
                 authError = authState.error,
-                showEmptyPlaceholder = authState.isAuthenticated && !isBusy && !hasSchedule,
-                onRefresh = { scope.launch { loadSchedule() } },
+                showEmptyPlaceholder = authState.isAuthenticated && !scheduleState.isLoading && !hasSchedule,
+                onRefresh = {
+                    val account = activeAccount ?: return@HomeScheduleLayout
+                    val group = authState.student?.group ?: return@HomeScheduleLayout
+                    viewModel.loadSchedule(account.login, account.password, group)
+                            },
                 onRetryAuth = {
-                    scope.launch {
-                        onRetryAuth().onFailure {
-                            onMessage(it.message ?: "Ошибка авторизации")
-                        }
-                    }
+                    val account = activeAccount ?: return@HomeScheduleLayout
+                    val group = authState.student?.group
+                    viewModel.loadSchedule(account.login, account.password, group)
                 },
-                onRetryLoad = { scope.launch { loadSchedule() } },
-                onShowPreviousWeek = { if (weekOffset > 0) weekOffset-- },
-                onShowNextWeek = { if (weekOffset < 4) weekOffset++ }
+                onRetryLoad = {
+                    val account = activeAccount ?: return@HomeScheduleLayout
+                    val group = authState.student?.group ?: return@HomeScheduleLayout
+                    viewModel.loadSchedule(account.login, account.password, group)
+                              },
+                onShowPreviousWeek = {
+                    val account = activeAccount ?: return@HomeScheduleLayout
+                    val group = authState.student?.group ?: return@HomeScheduleLayout
+                    viewModel.showPreviousWeek(account.login, account.password, group)
+                                     },
+                onShowNextWeek = {
+                    val account = activeAccount ?: return@HomeScheduleLayout
+                    val group = authState.student?.group ?: return@HomeScheduleLayout
+                    viewModel.showNextWeek(account.login, account.password, group)
+                }
 
             )
         }
     }
 }
-
-private fun groupPrefsKey(accountId: String) = "last_group_$accountId"
 
 /**
  * Единая раскладка на всех этапах: строка статуса → расписание → (опционально) пустое/ошибка.
@@ -961,11 +809,12 @@ private fun InfoCard(title: String, text: String) {
 @Composable
 private fun AccountScreen(
     padding: PaddingValues,
+    activeAccount: Credentials?,
     credentialsStore: SecureCredentialsStore,
     authManager: AuthStateManager,
     authState: AuthStateManager.AuthState,
     onAuthenticate: suspend (String, String) -> Result<Unit>,
-    onSwitchAccount: suspend (String) -> Result<Unit>,
+    onSwitchAccount: (String) -> Unit,
     onAccountChanged: () -> Unit,
     onMessage: (String) -> Unit
 ) {
@@ -974,7 +823,6 @@ private fun AccountScreen(
     var isSubmitting by remember { mutableStateOf(false) }
 
     var accounts by remember { mutableStateOf(credentialsStore.getAllAccounts()) }
-    val activeAccount = credentialsStore.getActiveAccount()
     val scope = rememberCoroutineScope()
 
     Column(
@@ -1039,16 +887,11 @@ private fun AccountScreen(
                     isActive = account.id == activeAccount?.id,
                     group = if (account.id == activeAccount?.id) authState.student?.group else null,
                     onSwitch = {
-                        scope.launch {
-                            val result = onSwitchAccount(account.id)
-                            result.onSuccess {
-                                accounts = credentialsStore.getAllAccounts()
-                                onAccountChanged()
-                                onMessage("Переключено на ${account.login}")
-                            }.onFailure {
-                                onMessage("Ошибка: ${it.message}")
-                            }
-                        }
+
+                        onSwitchAccount(account.id)
+                        accounts = credentialsStore.getAllAccounts()
+                        onAccountChanged()
+                        onMessage("Переключено на ${account.login}")
                     },
                     onRemove = {
                         credentialsStore.removeAccount(account.id)

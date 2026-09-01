@@ -50,7 +50,6 @@ fun MiniFloorPlan(
 
     if (shouldDraw) {
         // Получаем список комнат ТОЛЬКО для текущего этажа
-        //val rooms = ClassroomDirectory.allRoomsInBuilding(body)
 
         BoxWithConstraints(
             modifier = Modifier
