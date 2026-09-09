@@ -4,9 +4,7 @@ import androidx.compose.ui.graphics.Color
 import kotlin.math.absoluteValue
 
 class ScheduleUiModel {
-    /**
-     * Предмет для отображения в расписании
-     */
+    /** Предмет для отображения в расписании */
     data class LessonUi(
         val id: String,                          // Уникальный идентификатор
         val lessonNumber: Int,                   // Номер пары (1-8)
@@ -22,9 +20,7 @@ class ScheduleUiModel {
         val floorPlan: FloorPlanUi               // План этажа
     )
 
-    /**
-     * Декларативный план этажа для мини-отображения
-     */
+    /** Декларативный план этажа для мини-отображения */
     data class FloorPlanUi(
         val building: String,                    // "2 корпус"
         val floor: Int,                          // 1-4
@@ -32,18 +28,14 @@ class ScheduleUiModel {
         //val roomPosition: RoomPosition           // Позиция комнаты на плане
     )
 
-    /**
-     * Группа занятий по дню
-     */
+    /** Группа занятий по дню */
     data class DayGroupUi(
         val dayName: String,                     // "Понедельник"
         val date: String,                        // "13 апреля"
         val lessons: List<LessonUi>
     )
 
-    /**
-     * Цветовая схема для предмета (генерируется по хэшу)
-     */
+    /** Цветовая схема для предмета (генерируется по хэшу)*/
     object LessonColors {
         private val palette = listOf(
             Color(0xFF90CAF9), Color(0xFFA5D6A7), Color(0xFFCE93D8),

@@ -14,7 +14,8 @@ private val TAG = "SecureCredentialsStore"
 data class Credentials(
     val id: String = java.util.UUID.randomUUID().toString(),
     val login: String,
-    val password: String
+    val password: String,
+    val group: String? = null
 )
 
 
@@ -22,8 +23,6 @@ class SecureCredentialsStore(context: Context) {
     private val prefs = createPrefs(context)
 
     private val json = Json { encodeDefaults = true }
-
-    private var _activeAccountId: String? = prefs.getString(KEY_ACTIVE_ID, null)
 
     // === Ключи ===
     companion object {
@@ -66,8 +65,17 @@ class SecureCredentialsStore(context: Context) {
 
     /** Добавить аккаунт (и сделать активным) */
     fun addAccount(account: Credentials) {
+
         val accounts = getAllAccounts().toMutableList()
-        accounts.add(account)
+
+        if (accounts.any { it.login == account.login }) {
+            // Обновляем существующий аккаунт
+            val existingIndex = accounts.indexOfFirst { it.login == account.login }
+            accounts[existingIndex] = account
+        } else {
+            accounts.add(account)
+        }
+
         saveAccounts(accounts)
         prefs.edit().putString(KEY_ACTIVE_ID, account.id).apply()
     }
@@ -88,17 +96,24 @@ class SecureCredentialsStore(context: Context) {
 
     /** Переключиться на другой аккаунт */
     fun switchAccount(accountId: String) {
-        _activeAccountId = accountId  // Мгновенное обновление кэша
         prefs.edit().putString(KEY_ACTIVE_ID, accountId).apply()
     }
 
     /** Очистить всё */
     fun clearAll() {
-        _activeAccountId = null
         prefs.edit()
             .remove(KEY_ACCOUNTS)
             .remove(KEY_ACTIVE_ID)
             .apply()
+    }
+
+    fun updateAccountGroup(accountId: String, group: String) {
+        val accounts = getAllAccounts().toMutableList()
+        val index = accounts.indexOfFirst { it.id == accountId }
+        if (index != -1) {
+            accounts[index] = accounts[index].copy(group = group)
+            saveAccounts(accounts)
+        }
     }
 
     private fun saveAccounts(accounts: List<Credentials>) {

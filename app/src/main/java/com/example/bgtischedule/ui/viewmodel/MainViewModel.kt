@@ -1,5 +1,6 @@
 package com.example.bgtischedule.ui.viewmodel
 
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -40,7 +41,7 @@ class MainViewModel(
 
 
     data class ScheduleState(
-        val dayGroups: List<ScheduleUiModel.DayGroupUi>? = null,
+        val scheduleUi: List<ScheduleUiModel.DayGroupUi>? = null,
         val weekRange: String = "",
         val lastSyncTime: Long? = null,
         val isLoading: Boolean = false,
@@ -50,6 +51,13 @@ class MainViewModel(
 
     private val _scheduleState = MutableStateFlow(ScheduleState())
     val scheduleState: StateFlow<ScheduleState> = _scheduleState.asStateFlow()
+
+    private val _messages = MutableSharedFlow<String>(replay = 0)
+    val messages: SharedFlow<String> = _messages.asSharedFlow()
+
+    private suspend fun showMessage(msg: String) {
+        _messages.emit(msg)
+    }
 
     init {
         viewModelScope.launch {
@@ -74,39 +82,47 @@ class MainViewModel(
 
         viewModelScope.launch {
 
-            val badData = _scheduleState.value.dayGroups != null
+            val hadData = _scheduleState.value.scheduleUi != null
             _scheduleState.value = _scheduleState.value.copy(isLoading = true, errorMessage = null)
 
             val weekStart = LocalDate.now()
                 .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
                 .plusWeeks(_scheduleState.value.weekOffset.toLong())
 
-            val cached = request.loadCachedWeek(group, weekStart)
+            val cached = try {
+                request.loadCachedWeek(group, weekStart)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to load from cache", e)
+                null
+            }
+
             if (cached is SyncResult.Cached) {
-                _scheduleState.value = _scheduleState.value.copy(
-                    dayGroups = LessonMapper.toDayGroups(cached.schedule.lessons),
-                    weekRange = cached.schedule.weekRange,
-                    isLoading = false
-                )
+                //applyScheduleResult(cached)
+                _scheduleState.value = applyResult(cached)
             }
 
 
             try {
-                when (val fresh = request.refreshWeek(group, login, password, _scheduleState.value.weekOffset)) {
+                Log.d(TAG, "LoadSchedule: group=$group")
+                when (val result = request.refreshWeek(
+                    group,
+                    login,
+                    password,
+                    _scheduleState.value.weekOffset
+                )) {
                     is SyncResult.Success -> {
-                        val newGroup = fresh.schedule.studentFIO.group.ifBlank {group}
-                        _scheduleState.value = _scheduleState.value.copy(
-                            dayGroups = LessonMapper.toDayGroups(fresh.schedule.lessons),
-                            weekRange = fresh.schedule.weekRange,
-                            lastSyncTime = System.currentTimeMillis(),
-                            isLoading = false
-
-                        )
+                        //applyScheduleResult(result)
+                        _scheduleState.value = applyResult(result)
+                        if (result.changes.isNotEmpty()) {
+                            val added = result.changes.count {it.type == SyncResult.ChangeType.ADDED }
+                            val modified = result.changes.count { it.type == SyncResult.ChangeType.MODIFIED }
+                            showMessage("Обновлено: +$added новых, $modified изменено")
+                        }
                     }
                     is SyncResult.Error -> {
                         _scheduleState.value = _scheduleState.value.copy(
                             isLoading = false,
-                            errorMessage = if (!badData) fresh.message else null
+                            errorMessage = if (!hadData && cached !is SyncResult.Cached) result.message else null
                         )
                     }
 
@@ -116,9 +132,32 @@ class MainViewModel(
                 Log.e(TAG, "loadSchedule error", e)
                 _scheduleState.value = _scheduleState.value.copy(
                     isLoading = false,
-                    errorMessage = if (!badData) e.message else null
+                    errorMessage = if (!hadData && cached !is SyncResult.Cached) "Нет подключения" else null
                 )
             }
+        }
+    }
+
+    private fun applyResult(result: SyncResult): ScheduleState {
+        return when (result) {
+            is SyncResult.Success, is SyncResult.Cached -> {
+                val schedule = when (result) {
+                    is SyncResult.Success -> result.schedule
+                    is SyncResult.Cached -> result.schedule
+                    else -> throw IllegalStateException()
+                }
+                _scheduleState.value.copy(
+                    scheduleUi = LessonMapper.toDayGroups(schedule.lessons),
+                    weekRange = schedule.weekRange,
+                    lastSyncTime = System.currentTimeMillis(),
+                    isLoading = false,
+                    errorMessage = null
+                )
+            }
+            is SyncResult.Error -> _scheduleState.value.copy(
+                isLoading = true,
+                errorMessage = result.message
+            )
         }
     }
 
@@ -159,17 +198,21 @@ class MainViewModel(
         return parser.parse(html)?.studentFIO
     }
 
-    private suspend fun restoreSession() {
+    suspend fun restoreSession() {
         _uiState.value = UiState.Loading
+
+        authManager.switchToActiveAccount()
         val creds = authManager.getActiveCredentials() ?: run {
             _uiState.value = UiState.Unauthorized
             return
         }
         if (!api.login(creds.login, creds.password)) {
-            _uiState.value = UiState.Unauthorized
+            _uiState.value = authManager.authState.value.student
+                ?.let { UiState.Authorized(it) }
+                ?: UiState.Unauthorized
             return
         }
-        authManager.authenticateActiveAccount { fetchStudentInfo() }
+        authManager.authenticateWithServer { fetchStudentInfo() }
             .onSuccess {
                 _uiState.value = authManager.authState.value.student
                     ?.let { UiState.Authorized(it) }
@@ -202,21 +245,33 @@ class MainViewModel(
      * Переключение аккаунта: авторизация + обновление данных студента + загрузка расписания
      */
     fun onSwitchAccount() {
+        //_uiState.value = UiState()
+
+
         viewModelScope.launch {
+            authManager.switchToActiveAccount()
             val creds = authManager.getActiveCredentials() ?: return@launch
 
             // 1. Авторизация с новыми креденшнлами
             if (!api.login(creds.login, creds.password)) {
-                _uiState.value = UiState.Error("Не удалось авторизоваться на сервере")
+                // Сеть недоступна, но у нас есть данные из кэша
+                _uiState.value = authManager.authState.value.student
+                    ?.let { UiState.Authorized(it) }
+                    ?: UiState.Error("Не удалось авторизоваться на сервере")
+
+                // Загружаем расписание из кэша
+                val group = authManager.authState.value.student?.group
+                loadSchedule(creds.login, creds.password, group)
                 return@launch
             }
 
             // 2. Получение данных студента (ФИО, группа)
-            authManager.authenticateActiveAccount { fetchStudentInfo() }
+            authManager.authenticateWithServer { fetchStudentInfo() }
                 .onSuccess {
-                    _uiState.value = authManager.authState.value.student
-                        ?.let { UiState.Authorized(it) }
+                    val student = authManager.authState.value.student
+                    _uiState.value = student ?.let { UiState.Authorized(it) }
                         ?: UiState.Error("Не удалось получить данные студента")
+                    student?.group?.let { group ->}
                 }
                 .onFailure {
                     _uiState.value = UiState.Error(it.message ?: "Ошибка авторизации")

@@ -29,19 +29,51 @@ class AuthStateManager(
         fetchStudentInfo: suspend () -> StudentModel?
     ): Result<Unit> {
         credentialsStore.addAccount(Credentials(login = login, password = password))
-        return authenticateActiveAccount(fetchStudentInfo)
+        return authenticateWithServer(fetchStudentInfo)
+    }
+
+
+    /**
+     * Переключение на активный аккаунт БЕЗ сетевых запросов.
+     * Использует данные из кэша (Credentials.group).
+     * Вызывается при старте приложения и переключении аккаунтов.
+     */
+    fun switchToActiveAccount() {
+        val creds = credentialsStore.getActiveAccount()
+        if (creds == null) {
+            _authState.value = AuthState(isAuthenticated = false)
+            return
+        }
+
+        // Используем сохранённую группу из Credentials
+        val student = StudentModel(
+            name = "",
+            surname = "",
+            patronymic = "",
+            group = creds.group ?: ""
+        )
+
+        _authState.value = AuthState(
+            isAuthenticated = true,
+            student = student,
+            isLoading = false
+        )
     }
 
     /** Авторизоваться по уже сохранённому активному аккаунту (старт приложения / переключение) */
+    /*
     suspend fun authenticateActiveAccount(
         fetchStudentInfo: suspend () -> StudentModel?
     ): Result<Unit> {
         val creds = credentialsStore.getActiveAccount()
             ?: return Result.failure(Exception("Нет активного аккаунта"))
-        return authenticateWithServer(fetchStudentInfo)
+        credentialsStore.switchAccount(fetchStudentInfo)
+        return creds //authenticateWithServer(fetchStudentInfo)
     }
 
-    private suspend fun authenticateWithServer(
+     */
+
+    suspend fun authenticateWithServer(
         fetchStudentInfo: suspend () -> StudentModel?
     ): Result<Unit> {
         return try {
@@ -51,6 +83,12 @@ class AuthStateManager(
             Log.d(TAG, "authenticate: student=$student, group=${student?.group}")
 
             if (student != null) {
+                // Сохраняем обновлённую группу в Credentials
+                val creds = credentialsStore.getActiveAccount()
+                if (creds != null && student.group.isNotBlank()) {
+                    credentialsStore.updateAccountGroup(creds.id, student.group)
+                }
+
                 _authState.value = AuthState(
                     isAuthenticated = true,
                     student = student,
@@ -72,6 +110,8 @@ class AuthStateManager(
             Result.failure(e)
         }
     }
+
+
 
     suspend fun logout() {
         credentialsStore.clearAll()

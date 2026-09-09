@@ -143,6 +143,12 @@ fun AppRoot() {
     )
     val scheduleState by viewModel.scheduleState.collectAsState()
 
+    LaunchedEffect(Unit) {
+        viewModel.messages.collect { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
+
     var section by rememberSaveable { mutableStateOf(AppSection.Home) }
     var activeAccount by remember { mutableStateOf(credentialsStore.getActiveAccount()) }
     var pendingUpdate by remember { mutableStateOf<UpdateInfo?>(null) }
@@ -154,6 +160,27 @@ fun AppRoot() {
             runUpdateCheck(context, updateManager, scope, snackbarHostState,
                 onAvailable = { pendingUpdate = it }, showNoUpdateMessage = false)
             UpdateManager.markAutoCheckDone(context)
+        }
+    }
+
+    // Восстановление сессии при старте
+    LaunchedEffect(Unit) {
+        if (authManager.checkSavedCredentials()) {
+            // Переключаем на активный аккаунт (из кэша)
+            authManager.switchToActiveAccount()
+            activeAccount = credentialsStore.getActiveAccount()
+
+            // Пытаемся авторизоваться на сервере (опционально)
+            viewModel.restoreSession()
+        } else {
+            activeAccount = null
+        }
+    }
+
+// При смене активного аккаунта обновляем состояние
+    LaunchedEffect(activeAccount?.id) {
+        if (activeAccount != null) {
+            authManager.switchToActiveAccount()
         }
     }
 
@@ -292,10 +319,8 @@ fun AppRoot() {
                 viewModel = viewModel,
                 activeAccount = activeAccount,
                 authState = authState,
-                scheduleState = scheduleState,
-                onMessage = { msg ->
-                    scope.launch { snackbarHostState.showSnackbar(msg) }
-                })
+                scheduleState = scheduleState
+            )
             AppSection.Account -> AccountScreen(
                 padding = padding,
                 activeAccount = activeAccount,
@@ -309,6 +334,12 @@ fun AppRoot() {
                     credentialsStore.switchAccount(accountId)
                     activeAccount = credentialsStore.getActiveAccount()
                     viewModel.onSwitchAccount()
+                    scope.launch {
+                        delay(500) // Ждем завершения авторизации
+                        authState.student?.group?.let { group ->
+                            credentialsStore.updateAccountGroup(accountId, group)
+                        }
+                    }
                     Result.success(Unit)
                 },
                 onAccountChanged = {
@@ -412,12 +443,11 @@ private fun HomeScreen(
     viewModel: MainViewModel,
     activeAccount: Credentials?,
     authState: AuthStateManager.AuthState,
-    scheduleState: MainViewModel.ScheduleState,
-    onMessage: (String) -> Unit
+    scheduleState: MainViewModel.ScheduleState
 ) {
 
     val scope = rememberCoroutineScope()
-    val hasSchedule = scheduleState.dayGroups != null && scheduleState.weekRange.isNotEmpty()
+    val hasSchedule = scheduleState.scheduleUi != null && scheduleState.weekRange.isNotEmpty()
 
     Column(
         modifier = Modifier
@@ -436,7 +466,7 @@ private fun HomeScreen(
                 isStatusError = scheduleState.errorMessage != null,
                 hasSchedule = hasSchedule,
                 weekRange = scheduleState.weekRange,
-                scheduleUi = scheduleState.dayGroups,
+                scheduleUi = scheduleState.scheduleUi,
                 lastSyncTime = scheduleState.lastSyncTime,
                 showAuthErrorCard = !authState.isAuthenticated && !scheduleState.isLoading && hasSchedule && activeAccount != null,
                 authError = authState.error,
@@ -828,6 +858,7 @@ private fun AccountScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(padding)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -885,7 +916,11 @@ private fun AccountScreen(
                 AccountCard(
                     account = account,
                     isActive = account.id == activeAccount?.id,
-                    group = if (account.id == activeAccount?.id) authState.student?.group else null,
+                    group = if (account.id == activeAccount?.id) {
+                        authState.student?.group ?: account.group
+                    } else {
+                        account.group
+                    },
                     onSwitch = {
 
                         onSwitchAccount(account.id)
@@ -973,6 +1008,7 @@ private fun BehaviorScreen(padding: PaddingValues, prefs: SharedPreferences) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(padding)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -1006,6 +1042,7 @@ private fun WidgetScreen(padding: PaddingValues, prefs: SharedPreferences) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(padding)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
