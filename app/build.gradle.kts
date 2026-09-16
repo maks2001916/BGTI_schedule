@@ -13,8 +13,8 @@ android {
         applicationId = "com.example.bgtischedule"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10
-        versionName = "1.1.8"
+        versionCode = 11
+        versionName = "1.1.9"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -90,6 +90,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation("com.google.zxing:core:3.5.2")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
 }
 
 kotlin {

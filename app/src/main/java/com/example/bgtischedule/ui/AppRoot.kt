@@ -96,6 +96,7 @@ import kotlinx.coroutines.launch
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -139,7 +140,13 @@ fun AppRoot() {
 
 
     val viewModel: MainViewModel = viewModel(
-        factory = MainViewModelFactory(authManager, repository, api, scheduleParser, request)
+        factory = MainViewModelFactory(
+            authManager = authManager,
+            repository = repository,
+            api = api,
+            parser = scheduleParser,
+            request = request,
+            context = context.applicationContext)
     )
     val scheduleState by viewModel.scheduleState.collectAsState()
 
@@ -409,10 +416,11 @@ class MainViewModelFactory(
     private val repository: ScheduleRepository,
     private val api: UniversityApi,
     private val parser: ScheduleParser,
-    private val request: Request
+    private val request: Request,
+    private val context: Context
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T =
-        MainViewModel(authManager, repository, api, parser, request) as T
+        MainViewModel(authManager, repository, api, parser, request, context) as T
 }
 
 private fun loadLocalHtmlFile(context: Context, fileName: String): String? {
@@ -708,10 +716,11 @@ private fun ScheduleLessonsList(
     modifier: Modifier = Modifier
 ) {
     var currentTime by remember { mutableStateOf(LocalTime.now()) }
+    val todayIso = remember { LocalDate.now().toString() }
 
     LaunchedEffect(Unit) {
         while (true) {
-            delay(60_000)
+            delay(1_000)
             currentTime = LocalTime.now()
         }
     }
@@ -735,7 +744,7 @@ private fun ScheduleLessonsList(
             ) { lesson ->
                 LessonCard(
                     lesson = lesson,
-                    currentTime = currentTime,
+                    currentTime =  currentTime,
                     currentTimeColor = currentTimeColor
                 )
             }
@@ -792,7 +801,7 @@ private fun ScheduleCardPreview() {
                         classroom = "304",
                         building = "2",
                         topic = "Пределы и непрерывность",
-                        color = LessonColors.getColorForLesson("lesson_1"),
+                        color = HashColors.colorFor("lesson_1"),
                         floorPlan = FloorPlanUi(
                             building = "2 корпус",
                             floor = 3,
@@ -810,7 +819,7 @@ private fun ScheduleCardPreview() {
                         classroom = "215",
                         building = "2",
                         topic = "Работа с коллекциями",
-                        color = LessonColors.getColorForLesson("lesson_2"),
+                        color = HashColors.colorFor("lesson_2"),
                         floorPlan = FloorPlanUi(
                             building = "2 корпус",
                             floor = 2,
@@ -999,11 +1008,14 @@ private fun AccountCard(
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.GINGERBREAD)
 @Composable
 private fun BehaviorScreen(padding: PaddingValues, prefs: SharedPreferences) {
     var autoRefresh by rememberSaveable { mutableStateOf(prefs.getBoolean("behavior_auto_refresh", true)) }
     var notifyBeforeLesson by rememberSaveable { mutableStateOf(prefs.getBoolean("behavior_notify", false)) }
     var openLastWeekOnStart by rememberSaveable { mutableStateOf(prefs.getBoolean("behavior_last_week", true)) }
+    var checkScheduleOnStart by rememberSaveable { mutableStateOf(prefs.getBoolean("behavior_check_on_start", true)) } // ✅ НОВОЕ
+
 
     Column(
         modifier = Modifier
@@ -1028,6 +1040,10 @@ private fun BehaviorScreen(padding: PaddingValues, prefs: SharedPreferences) {
             prefs.edit().putBoolean("behavior_last_week", it)
         }
         */
+        SettingsSwitch("Проверять расписание при запуске", checkScheduleOnStart) {
+            checkScheduleOnStart = it
+            prefs.edit().putBoolean("behavior_check_on_start", it).apply()
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 package com.example.bgtischedule.ui.components
 
+import android.util.Log
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
@@ -22,6 +23,8 @@ private const val INDICATOR_WIDTH_DP = 30f
 private const val PADDING = 4f
 private const val MAX_POSITION = 13
 
+private val TAG = "MiniFloorPlan"
+
 
 /** Схематичный план этажа с выделением комнаты и этажа */
 @Composable
@@ -40,9 +43,14 @@ fun MiniFloorPlan(
     var body = extractBuildingNumber(floorPlan.building)
     if (body !in 1..3) return
 
-    val rooms = ClassroomDirectory.getRoomsForFloor(body, floorPlan.floor)
+    val actualFloor = ClassroomDirectory.findFloorByRoom(body, floorPlan.roomNumber)
+        ?: floorPlan.floor
 
-// ✅ ПРОВЕРКА: есть ли искомая аудитория в корпусе?
+    val rooms = ClassroomDirectory.getRoomsForFloor(body, actualFloor)
+    if (rooms.none { it.number == floorPlan.roomNumber }) return
+    Log.i(TAG, "body: $body" )
+
+// ПРОВЕРКА: есть ли искомая аудитория в корпусе?
     val roomExists = rooms.any { it.number == floorPlan.roomNumber }
 
 // Если корпус не распознан ИЛИ аудитория не найдена — не рисуем карту
@@ -80,7 +88,7 @@ fun MiniFloorPlan(
                 val baseRoomHeightPx = baseRoomWidthPx
 
                 rooms.forEach { room ->
-
+                    Log.i(TAG, "room: ${room.number}")
                     // Ширина ячейки с отступом
                     val slotWidthPx = baseRoomWidthPx + paddingPx
                     // Длина ячейки с отступом
@@ -125,7 +133,7 @@ fun MiniFloorPlan(
                         val fitsHeight = textH <= (roomHeightPx - vPadding * 2)
 
                         if (fitsWidth && fitsHeight) {
-                            // ✅ Центрирование: (размер контейнера - размер текста) / 2
+                            // Центрирование: (размер контейнера - размер текста) / 2
                             val textX = x + (roomWidthPx - textW) / 2f
                             val textY = y + (roomHeightPx - textH) / 2f
 
@@ -145,11 +153,11 @@ fun MiniFloorPlan(
                     val y =
                         (canvasHeight - (PADDING.dp * 3) - (floor * ((baseRoomHeightPx / 2) - (PADDING / 2))).dp)
                     drawLine(
-                        color = if (floor == floorPlan.floor - 1) currentFloorColor
+                        color = if (floor == actualFloor - 1) currentFloorColor
                         else color,
                         start = Offset(PADDING.dp.toPx(), y.toPx()),
                         end = Offset((INDICATOR_WIDTH_DP - PADDING).dp.toPx(), y.toPx()),
-                        strokeWidth = if (floor == floorPlan.floor - 1) 3.dp.toPx() else 1.dp.toPx(),
+                        strokeWidth = if (floor == actualFloor - 1) 3.dp.toPx() else 1.dp.toPx(),
                         cap = StrokeCap.Round
                     )
 
@@ -166,13 +174,3 @@ private fun extractBuildingNumber(building: String): Int = when {
     building.contains("3") -> 3
     else -> 0
 }
-
-
-/** Данные о комнате: позиция в ряду (1..13), позиция в столбце (1-5), ширина кабинета, высота кабинета, название кабинета */
-private data class RoomData(
-    val x: Float,
-    val y: Float,
-    val sizeX: Float,
-    val sizeY: Float,
-    val number: String
-)

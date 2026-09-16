@@ -36,8 +36,6 @@ fun LessonTimeGraph(
     currentTimeColor: Color? = null,
     modifier: Modifier = Modifier
         .fillMaxHeight()
-        //.wrapContentWidth()
-        //.width(20.dp)
 ) {
     val actualColor = currentTimeColor ?: MaterialTheme.colorScheme.primary
     val timeLineColor = MaterialTheme.colorScheme.outlineVariant

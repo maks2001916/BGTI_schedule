@@ -24,10 +24,14 @@ class MainViewModel(
     private val scheduleRepo: ScheduleRepository,
     private val api: UniversityApi,
     private val parser: ScheduleParser,
-    private val request: Request
+    private val request: Request,
+    private val context: Context
 ) : ViewModel() {
 
-    private companion object { const val TAG = "MainViewModel" }
+    private companion object {
+        const val TAG = "MainViewModel"
+        const val MIN_WEEK_OFFSET = -8   // глубина истории: 8 недель назад
+    }
 
     sealed class UiState {
         object Loading : UiState()
@@ -63,6 +67,16 @@ class MainViewModel(
         viewModelScope.launch {
             if (authManager.checkSavedCredentials()) {
                 restoreSession()
+                val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+                val checkOnStart = prefs.getBoolean("behavior_check_on_start", true)
+
+                if (checkOnStart) {
+                    val creds = authManager.getActiveCredentials()
+                    val group = authManager.authState.value.student?.group
+                    if (creds != null && !group.isNullOrBlank()) {
+                        loadSchedule(creds.login, creds.password, group)
+                    }
+                }
             } else {
                 _uiState.value = UiState.Unauthorized
             }
@@ -169,10 +183,11 @@ class MainViewModel(
         loadSchedule(login, password, group)
     }
 
+
     /** Переключиться на предыдущую неделю (не уходим в минус) */
     fun showPreviousWeek(login: String?, password: String?, group: String?) {
         val current = _scheduleState.value.weekOffset
-        if (current > 0) {
+        if (current > MIN_WEEK_OFFSET) {
             _scheduleState.value = _scheduleState.value.copy(weekOffset = current - 1)
             loadSchedule(login, password, group)
         }

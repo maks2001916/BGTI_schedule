@@ -2,7 +2,6 @@ package com.example.bgtischedule.ui.components
 
 import android.os.Build
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -16,16 +15,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.bgtischedule.model.ScheduleUiModel.*
 import com.example.bgtischedule.ui.shedule.LessonCardLayout
-import java.time.LocalDate
 import java.time.LocalTime
 
 @Composable
 fun LessonCard(
     lesson: LessonUi,
-    currentTime: LocalTime,
+    currentTime: LocalTime? = null,
     currentTimeColor: Color = MaterialTheme.colorScheme.primary,
     modifier: Modifier = Modifier.fillMaxWidth().wrapContentHeight()
 ) {
+
     Card(
         modifier = modifier
             .padding(horizontal =4.dp, vertical = 4.dp)
@@ -119,6 +118,7 @@ fun LessonCard(
                    MiniFloorPlan(
                        floorPlan = lesson.floorPlan,
                        currentFloorColor = lesson.color,
+
                        modifier = modifier
                            .fillMaxWidth()
                            .wrapContentHeight()
@@ -169,8 +169,7 @@ fun LessonCard(
                    startTime = lesson.startTime,
                    endTime = lesson.endTime,
                    currentTime = if (currentTime.toString()
-                           .let { it >= lesson.startTime && it <= lesson.endTime }
-                   )
+                           .let { it >= lesson.startTime && it <= lesson.endTime })
                        currentTime else null,
                    currentTimeColor = currentTimeColor,
                    modifier = Modifier

@@ -1,24 +1,29 @@
 package com.example.bgtischedule.ui.mapper
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import com.example.bgtischedule.model.ClassroomDirectory
 import com.example.bgtischedule.model.Lesson
 import com.example.bgtischedule.model.ScheduleUiModel.*
+import com.example.bgtischedule.parser.ScheduleParser
 
 object LessonMapper {
 
+    @RequiresApi(Build.VERSION_CODES.O)
     fun toUi(lesson: Lesson, indexInDay: Int = 0): LessonUi {
+        val (start, end) = ScheduleParser.resolveTime(lesson.time, lesson.noteTime)
         return LessonUi(
             id = lessonUiId(lesson, indexInDay),
             lessonNumber = lesson.lessonNumber.toInt(),
-            startTime = lesson.time.split("-").firstOrNull() ?: "",
-            endTime = lesson.time.split("-").lastOrNull() ?: "",
+            startTime = start,
+            endTime = end,
             subject = lesson.subject,
             type = lesson.type,
             teacher = lesson.teacher,
             classroom = lesson.classroom,
             building = lesson.building,
             topic = lesson.topic,
-            color = LessonColors.getColorForLesson(lesson.subject),
+            color = HashColors.colorFor(lesson.subject),
             floorPlan = FloorPlanUi(
                 building =
                     if (!lesson.building.isNullOrEmpty())

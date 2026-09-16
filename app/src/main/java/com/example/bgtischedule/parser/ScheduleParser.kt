@@ -1,13 +1,15 @@
 package com.example.bgtischedule.parser
 
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import com.example.bgtischedule.model.Lesson
 import com.example.bgtischedule.model.Schedule
 import com.example.bgtischedule.model.StudentModel
+import com.example.bgtischedule.uril.TimeUtils
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
-import kotlin.math.log
 
 class ScheduleParser {
 
@@ -196,6 +198,24 @@ class ScheduleParser {
         return if (shortTime) {
             shortTimes[lessonNumber] ?: ""
         } else times[lessonNumber] ?: ""
+    }
+
+    companion object {
+        private val CUSTOM_START_REGEX = Regex("""(\d{1,2}:\d{2})""")
+
+        /** "Начало в 14:00" → "14:00" */
+        fun extractCustomStart(noteTime: String): String? =
+            CUSTOM_START_REGEX.find(noteTime)?.groupValues?.getOrNull(1)?.padStart(5, '0')
+
+        /** Эффективное время пары: слот с учётом индивидуального начала */
+        @RequiresApi(Build.VERSION_CODES.O)
+        fun resolveTime(slotTime: String, noteTime: String): Pair<String, String> {
+            val slotStart = slotTime.substringBefore("-").padStart(5, '0')
+            val slotEnd = slotTime.substringAfter("-").padStart(5, '0')
+            val custom = extractCustomStart(noteTime) ?: return slotStart to slotEnd
+            val duration = TimeUtils.durationMinutes(slotStart, slotEnd)
+            return custom to TimeUtils.addMinutes(custom, duration)
+        }
     }
 
     private fun Element.getTextWithStyle(): List<StyledText> {
