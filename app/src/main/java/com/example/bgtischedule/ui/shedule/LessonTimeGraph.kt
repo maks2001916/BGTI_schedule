@@ -1,7 +1,6 @@
 package com.example.bgtischedule.ui.components
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -51,9 +50,9 @@ fun LessonTimeGraph(
     val end = LocalTime.parse(endTime, timeFormat)
 
     // Вычисляем позиции (в пределах 0-100%)
-    val dayStart = LocalTime.of(8, 0)   // 08:00 - начало учебного дня
-    val dayEnd = LocalTime.of(22, 0)    // 22:00 - конец учебного дня
-    val dayDuration = Duration.between(dayStart, dayEnd).toMinutes()
+    val dayStart = LocalTime.of(0, 0)   // 00:00 - начало пары
+    val timeEnd = LocalTime.of(1, 30)    // 01:30 - конец учебного дня
+    val dayDuration = Duration.between(dayStart, timeEnd).toMinutes()
 
     val startPercent = Duration.between(dayStart, start).toMinutes().toFloat() / dayDuration
     val endPercent = Duration.between(dayStart, end).toMinutes().toFloat() / dayDuration

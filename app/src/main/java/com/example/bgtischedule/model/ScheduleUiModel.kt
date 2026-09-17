@@ -51,6 +51,8 @@ class ScheduleUiModel {
             return lerp(palette[i], palette[i + 1], (pos - i).toFloat())
         }
 
+
+
         // Соль в префиксе — чтобы один и тот же текст в разных сущностях не давал тот же цвет
         fun forSubject(subject: String): Color = colorFor("subj:$subject")
         fun forTeacher(teacher: String): Color = colorFor("teach:$teacher")
