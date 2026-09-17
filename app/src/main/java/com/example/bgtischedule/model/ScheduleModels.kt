@@ -1,17 +1,60 @@
 package com.example.bgtischedule.model
 
+import com.example.bgtischedule.datebase.LessonEntity
+
 //занятие
 data class Lesson(
-    val day: String,            //день недели
-    val date: String,           //дата
-    val lessonNumber: String,   //номер пары
-    val time: String,           //вермя
-    val classroom: String,      //аудитория
-    val subject: String,        //предмет
-    val type: String,           //тип
-    val teacher: String,        //преподаватель
-    val topic: String           //тема
-)
+    /** ID записи в БД (0 — если с сервера без сохранения) */
+    val id: Long = 0,
+    /** Группа */
+    val group: String,
+    /** День недели */
+    val day: String,
+    /** Дата */
+    val date: String,
+    /** Номер пары */
+    val lessonNumber: Byte,
+    /** Время */
+    val time: String,
+    /** Аудитория */
+    val classroom: String,
+    /** корпус */
+    val building: String,
+    /** Название предмета */
+    val subject: String,
+    /** Тип занятия */
+    val type: String,
+    /** Преподаватель */
+    val teacher: String,
+    /** Тема занятия */
+    val topic: String,
+    /** Примечание */
+    val note: String,
+    /** Оценка */
+    val estimation: String,
+    /** Примечание о времени начала занятия */
+    val noteTime: String
+) {
+
+    fun toLessonDbEntity(): LessonEntity = LessonEntity(
+        id = id,
+        weekId = 0,
+        group = group,
+        dayOfWeek = day,
+        date = date,
+        lessonNumber = lessonNumber,
+        time = time,
+        classroom = classroom,
+        building = building,
+        subject = subject,
+        type = type,
+        teacher = teacher,
+        topic = topic,
+        note = note,
+        estimation = estimation,
+        noteTime = noteTime
+    )
+}
 
 //график
 data class Schedule(
